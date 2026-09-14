@@ -18,6 +18,7 @@ src/model/
 
 scripts/
 ├─ smoke_model.py            使用本地配置验证真实模型连接
+└─ smoke_agent_loop.py       使用 FakeChatModel 离线验证工具调用闭环
 ```
 
 ## 依赖方向
