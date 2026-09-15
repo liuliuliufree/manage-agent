@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -13,7 +14,7 @@ from typing import Iterable, Mapping
 
 SCENARIO_ID = "demo-acts-1-3"
 SCENARIO_VERSION = "1.0.0"
-RULE_VERSION = "acts-1-3-rules-v1"
+RULE_VERSION = "acts-1-3-rules-v2"
 DATA_DEFINITION_VERSION = "acts-1-3-data-v1"
 BASELINE = datetime(2026, 9, 15, 9, 0, tzinfo=timezone(timedelta(hours=8)))
 CUSTOMER_COUNT = 120
@@ -520,7 +521,12 @@ def _add_calculation_rules(rows: list[dict[str, str]]) -> None:
         ("PRIORITY", "priority_customer_count", "12", "integer", "高优先级客户数量"),
         ("PRIORITY", "gap_high_ratio", "0.6", "decimal", "高保障缺口比例阈值"),
         ("PRIORITY", "gap_medium_ratio", "0.4", "decimal", "中保障缺口比例阈值"),
+        ("PRIORITY", "gap_high_points", "40", "integer", "高保障缺口贡献"),
+        ("PRIORITY", "gap_medium_points", "30", "integer", "中保障缺口贡献"),
+        ("PRIORITY", "gap_low_points", "20", "integer", "低保障缺口贡献"),
+        ("PRIORITY", "fresh_family_fact_days", "30", "integer", "近期家庭责任事实窗口"),
         ("PRIORITY", "content_view_points", "10", "integer", "单次近期浏览贡献，最多两次"),
+        ("PRIORITY", "max_scored_content_views", "2", "integer", "计分的近期浏览次数上限"),
         ("PRIORITY", "assessment_completed_points", "20", "integer", "完成测算贡献"),
         ("PRIORITY", "consultation_points", "15", "integer", "主动咨询贡献"),
         ("PRIORITY", "fresh_family_fact_points", "10", "integer", "30天内家庭事实贡献"),
@@ -529,6 +535,12 @@ def _add_calculation_rules(rows: list[dict[str, str]]) -> None:
         ("PRIORITY", "payment_capacity_low_points", "5", "integer", "低缴费能力区间贡献"),
         ("PRIORITY", "recent_contact_penalty", "5", "integer", "频控窗口内每次触达扣减"),
         ("OPPORTUNITY", "unit_contact_cost", "1", "decimal", "机会成本相对比较的统一单位成本"),
+        ("OPPORTUNITY_SCORE", "size_weight", "0.35", "decimal", "客群规模指标权重"),
+        ("OPPORTUNITY_SCORE", "demand_weight", "0.25", "decimal", "需求强度指标权重"),
+        ("OPPORTUNITY_SCORE", "response_weight", "0.20", "decimal", "响应潜力指标权重"),
+        ("OPPORTUNITY_SCORE", "confidence_weight", "0.10", "decimal", "识别置信度指标权重"),
+        ("OPPORTUNITY_SCORE", "risk_penalty_weight", "0.05", "decimal", "风险指标扣减权重"),
+        ("OPPORTUNITY_SCORE", "cost_penalty_weight", "0.05", "decimal", "相对触达成本扣减权重"),
     ]
     for index, (group, name, value, value_type, description) in enumerate(rule_values, 1):
         rows.append(
@@ -602,7 +614,80 @@ def _read_csv(path: Path) -> list[dict[str, str]]:
 
 
 def validate_dataset(output_dir: Path) -> dict[str, object]:
-    """Recompute the key story outcomes from CSV source facts."""
+    """Recompute expected outcomes through the production business layer."""
+    _, expectation_rows = read_dataset(output_dir)
+    expected = {row["metric"]: row["expected_value"] for row in expectation_rows}
+    project_root = Path(__file__).resolve().parents[1]
+    source_root = str(project_root / "src")
+    if source_root not in sys.path:
+        sys.path.insert(0, source_root)
+
+    from manage import (  # noqa: PLC0415
+        ANNIVERSARY_OPPORTUNITY,
+        FAMILY_OPPORTUNITY,
+        MEDICAL_OPPORTUNITY,
+        ManageService,
+        ScenarioRepository,
+    )
+
+    service = ManageService(ScenarioRepository(output_dir.parent).load(SCENARIO_ID))
+    context = service.get_business_context().to_dict()
+    analysis = service.analyze_opportunities().to_dict()
+    segment = service.segment_opportunity_customers(FAMILY_OPPORTUNITY).to_dict()
+    counts = {
+        item["opportunity_id"]: item["customer_count"]
+        for item in analysis["opportunities"]
+    }
+    priority_ids = [item["customer_id"] for item in segment["priority_customers"]]
+    c001 = service.explain_customer_decision(FAMILY_OPPORTUNITY, "C001").to_dict()
+    c028 = service.explain_customer_decision(FAMILY_OPPORTUNITY, "C028").to_dict()
+    expected_exclusions = {
+        "authorization": int(expected["excluded_authorization"]),
+        "frequency": int(expected["excluded_frequency"]),
+        "refusal": int(expected["excluded_refusal"]),
+        "sensitive_status": int(expected["excluded_sensitive_status"]),
+        "suitability": int(expected["excluded_suitability"]),
+    }
+    assertions = (
+        (context["data_scope"]["customer_profile"] == int(expected["customer_count"]), "customer count mismatch"),
+        (counts[FAMILY_OPPORTUNITY] == int(expected["family_opportunity_count"]), "family opportunity count mismatch"),
+        (counts[ANNIVERSARY_OPPORTUNITY] == 50, "anniversary opportunity count mismatch"),
+        (counts[MEDICAL_OPPORTUNITY] == 25, "medical opportunity count mismatch"),
+        (analysis["recommended_opportunity_id"] == expected["selected_opportunity_id"], "recommended opportunity mismatch"),
+        (segment["funnel"]["eligible_customers"] == int(expected["eligible_customer_count"]), "eligible count mismatch"),
+        (segment["funnel"]["priority_customers"] == int(expected["priority_customer_count"]), "priority count mismatch"),
+        (set(priority_ids) == PRIORITY_IDS, "priority customer members drifted"),
+        (segment["exclusion_counts"] == expected_exclusions, "exclusion distribution mismatch"),
+        (c001["disposition"] == expected["c001_result"], "C001 result mismatch"),
+        (c028["disposition"] == expected["c028_result"], "C028 result mismatch"),
+    )
+    for condition, message in assertions:
+        if not condition:
+            raise ValueError(message)
+
+    return {
+        "customer_count": context["data_scope"]["customer_profile"],
+        "opportunities": {
+            "family_ci_gap": counts[FAMILY_OPPORTUNITY],
+            "policy_anniversary": counts[ANNIVERSARY_OPPORTUNITY],
+            "medical_incomplete": counts[MEDICAL_OPPORTUNITY],
+        },
+        "recommended_opportunity_id": analysis["recommended_opportunity_id"],
+        "opportunity_scores": {
+            item["opportunity_id"]: item["composite_score"]
+            for item in analysis["opportunities"]
+        },
+        "eligible_count": segment["funnel"]["eligible_customers"],
+        "priority_count": segment["funnel"]["priority_customers"],
+        "priority_ids": priority_ids,
+        "exclusion_counts": segment["exclusion_counts"],
+        "c001_score": c001["priority_score"],
+        "c028_score": c028["priority_score"],
+    }
+
+
+def _validate_dataset_legacy(output_dir: Path) -> dict[str, object]:
+    """Legacy independent validator retained for migration comparison."""
     tables, expectation_rows = read_dataset(output_dir)
     expected = {row["metric"]: row["expected_value"] for row in expectation_rows}
     customers = {row["customer_id"]: row for row in tables["customer_profile.csv"]}

@@ -16,6 +16,15 @@ src/model/
 ├─ fake.py          确定性测试实现
 └─ errors.py        稳定的模型调用错误边界
 
+src/manage/
+├─ repository.py    只读取场景 source 数据并校验快照、引用与规则版本
+├─ contracts.py     经营任务、机会组合、圈客、客户证据和 Agent 结果契约
+├─ service.py       三类机会、综合排序、硬规则、优先级和证据的确定性计算
+├─ tools.py         四个业务 Tool 及单次 Agent 运行的正式产物收集
+├─ prompts.py       稳定 System Prompt 与运行任务消息模板
+├─ workflow.py      前三幕 Agent 用例、必经产物检查和确定性降级
+└─ __main__.py      本地真实模型运行入口
+
 scripts/
 ├─ smoke_model.py                 使用本地配置验证真实模型连接
 ├─ smoke_agent_loop.py            使用 FakeChatModel 离线验证工具调用闭环
@@ -26,7 +35,9 @@ data/scenarios/demo_acts_1_3_v1/
 └─ test_expectations/        仅供测试断言使用的期望结果 CSV
 
 tests/
-└─ test_demo_mock_data.py    校验场景业务不变量与逐字节可重复生成
+├─ test_demo_mock_data.py    校验场景业务不变量与逐字节可重复生成
+├─ test_manage_service.py    校验正式业务计算、证据、规则和数据隔离
+└─ test_manage_workflow.py   校验 Agent Tool 闭环与确定性降级
 ```
 
 ## 依赖方向
@@ -39,4 +50,14 @@ Agent Core
 OpenAI-compatible 接口
 ```
 
-前三幕 Mock 数据当前不进入 Agent Core。生成脚本只负责创建场景事实并验证数据自洽；后续业务 Tool 将读取 `source/`，测试代码可以额外读取 `test_expectations/`。
+前三幕业务依赖方向为：
+
+```text
+Agent 用例 → 业务 Tool → 确定性 ManageService → 场景 Repository → source CSV
+     ↓
+Agent Core → ChatModel → OpenAI-compatible 接口或 Fake 模型
+```
+
+Agent Core 不感知具体业务。业务 Tool 只调用 `ManageService`，主 Agent 不直接读取 CSV。`ManageService` 的汇总由客户明细派生，规则参数来自场景规则快照。生成器创建 source 与测试期望后，也通过正式 `ManageService` 重算并校验结果；正常业务路径不读取 `test_expectations/`。
+
+`workflow.py` 收集 Tool 返回的正式产物并检查经营上下文、机会分析和客群筛选是否齐全，同时校验最终文本是否保持推荐机会、漏斗数字和合成数据标识。模型调用失败、漏掉必经 Tool、关键文本不一致或没有最终文本时，用例直接复用同一确定性服务形成产物和模板说明，并在结果中标记降级原因。
