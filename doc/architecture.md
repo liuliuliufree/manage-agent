@@ -38,6 +38,12 @@ tests/
 ├─ test_demo_mock_data.py    校验场景业务不变量与逐字节可重复生成
 ├─ test_manage_service.py    校验正式业务计算、证据、规则和数据隔离
 └─ test_manage_workflow.py   校验 Agent Tool 闭环与确定性降级
+
+web/
+├─ src/App.tsx               单对话工作区、三幕进度与输入交互
+├─ src/chatStream.ts         SSE/NDJSON 流解析与内置演示流适配
+├─ src/styles.css            响应式视觉系统与克制动效
+└─ vite.config.ts            Vite 开发与 `/api` 代理配置
 ```
 
 ## 依赖方向
@@ -61,3 +67,5 @@ Agent Core → ChatModel → OpenAI-compatible 接口或 Fake 模型
 Agent Core 不感知具体业务。业务 Tool 只调用 `ManageService`，主 Agent 不直接读取 CSV。`ManageService` 的汇总由客户明细派生，规则参数来自场景规则快照。生成器创建 source 与测试期望后，也通过正式 `ManageService` 重算并校验结果；正常业务路径不读取 `test_expectations/`。
 
 `workflow.py` 收集 Tool 返回的正式产物并检查经营上下文、机会分析和客群筛选是否齐全，同时校验最终文本是否保持推荐机会、漏斗数字和合成数据标识。模型调用失败、漏掉必经 Tool、关键文本不一致或没有最终文本时，用例直接复用同一确定性服务形成产物和模板说明，并在结果中标记降级原因。
+
+前端与后端通过独立的流适配层解耦。前端期望 `POST /api/chat/stream` 接收 `message` 与 `scenario_id`，并以 SSE 或逐行 JSON 返回 `act`、`delta`、`done`、`error` 事件。未配置 `VITE_API_BASE_URL` 时，适配层使用与当前场景事实一致的内置演示流；该演示流只用于页面开发，不是业务事实计算入口。

@@ -2,9 +2,9 @@
 
 ## 系统快照
 
-项目当前具备 OpenAI-compatible 模型调用层、可观察的 Agent Loop、JSON Schema Tool 参数校验和确定性 Fake 模型。
+项目当前具备 OpenAI-compatible 模型调用层、可观察的 Agent Loop、JSON Schema Tool 参数校验和确定性 Fake 模型，以及一个 Node.js + React 的前三幕对话前端。
 
-前三幕领导演示已形成基于合成数据的最小后端闭环：系统可以加载经营目标与边界、确定性计算并比较三个机会、推荐重点机会、执行自动圈客，并按需返回客户级决策证据。主 Agent 通过四个业务 Tool 使用这些能力；模型未完成必经调用或不可用时，系统保留确定性结果并使用模板降级。当前尚未接入页面、接口或跨进程运行状态。
+前三幕领导演示已形成基于合成数据的最小后端闭环：系统可以加载经营目标与边界、确定性计算并比较三个机会、推荐重点机会、执行自动圈客，并按需返回客户级决策证据。主 Agent 通过四个业务 Tool 使用这些能力；模型未完成必经调用或不可用时，系统保留确定性结果并使用模板降级。React 前端提供单对话工作区、三幕进度与流式文本呈现；当前使用内置合成演示流，尚未提供连接 Python 用例的 HTTP 流式接口或跨进程运行状态。
 
 ## 当前能力
 
@@ -14,6 +14,7 @@
 - 验证 C001、C028 的初始圈客结果以及数据关联、时间和生成确定性。
 - 返回经营任务、机会组合、客群筛选和客户决策证据等结构化产物，并携带场景、数据和规则版本。
 - 通过 `get_business_context`、`analyze_opportunities`、`segment_opportunity_customers` 和 `explain_customer_decision` 四个业务 Tool 支持主 Agent 调用。
+- 通过 `web/` 中的 React 前端展示前三幕对话，支持逐字流、停止生成、移动端布局，并可通过环境变量切换到 SSE 或 NDJSON 流式接口。
 
 ## 核心契约与边界
 
@@ -28,7 +29,7 @@
 ## 已知限制
 
 - 当前场景数据用于演示自洽性，不具有统计代表性。
-- 当前只提供本地 Agent 入口，尚无 FastAPI 接口和页面。
+- 当前 Python Agent 只提供本地入口，尚无 FastAPI 流式接口；前端默认使用内置演示流，不能直接触发真实 Agent。
 - 经营任务和前三幕产物只在单次调用中返回，尚未持久化为公共 Demo 运行状态。
 - 其他机会可以执行圈客，但首套场景的评分与故事验收重点仍是第一类机会。
 - C028 在第三幕后触发频控的后续事件尚未纳入本次前三幕数据集。
@@ -39,7 +40,9 @@
 - 只校验已有数据：`.\.venv\Scripts\python.exe scripts\generate_demo_mock_data.py --validate-only`
 - 运行前三幕 Agent：先设置 `PYTHONPATH=src`，再执行 `.\.venv\Scripts\python.exe -m manage "分析近期值得重点经营的加保机会"`
 - 运行数据测试：`.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v`
+- 启动前三幕前端：进入 `web/` 后执行 `npm install` 和 `npm run dev`
+- 构建前三幕前端：进入 `web/` 后执行 `npm run build`
 
 ## 最近验证基线
 
-2026-09-15：生成器内置校验通过；11 项数据、业务 Tool 和 Agent 闭环测试通过；Python 字节码编译通过；本轮未执行真实模型冒烟。
+2026-09-15：生成器内置校验通过；11 项数据、业务 Tool 和 Agent 闭环测试通过；Python 字节码编译通过；React 前端 TypeScript 检查与 Vite 生产构建通过；本轮未执行真实模型冒烟，内置浏览器连接不可用，未完成截图级视觉验证。
