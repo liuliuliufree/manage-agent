@@ -1,0 +1,13 @@
+﻿scenario_id,metric,expected_value,description
+demo-acts-1-3,customer_count,120,全部合成客户数
+demo-acts-1-3,selected_opportunity_id,OPP-FAMILY-CI-GAP,应被推荐的机会
+demo-acts-1-3,family_opportunity_count,86,第一类机会客户数
+demo-acts-1-3,eligible_customer_count,41,通过经营与合规初筛人数
+demo-acts-1-3,priority_customer_count,12,高优先级人数
+demo-acts-1-3,excluded_authorization,14,经营授权排除人数
+demo-acts-1-3,excluded_frequency,9,频控排除人数
+demo-acts-1-3,excluded_refusal,7,明确拒绝排除人数
+demo-acts-1-3,excluded_sensitive_status,6,敏感状态排除人数
+demo-acts-1-3,excluded_suitability,9,初步适当性排除人数
+demo-acts-1-3,c001_result,priority,C001 初始圈客结果
+demo-acts-1-3,c028_result,priority,C028 第三幕初始圈客结果

@@ -1,0 +1,4 @@
+﻿opportunity_id,scenario_id,name,description,required_signals,optional_signals,exclusion_conditions,definition_version
+OPP-FAMILY-CI-GAP,demo-acts-1-3,家庭责任变化与重疾保障缺口,家庭责任信息有效且当前重疾保障低于测算所需保障,家庭责任信息有效|数据使用授权有效|重疾保障缺口大于0,家庭信息近期更新|保障内容浏览|完成保障测算,家庭责任信息过期|数据使用授权无效,opportunity-definitions-v1
+OPP-POLICY-ANNIVERSARY,demo-acts-1-3,临近保单周年的保障回顾,有效保单将在规则窗口内到达下一周年日,有效保单|周年日在规则窗口内,存在保障缺口|家庭责任较高,保单非有效状态,opportunity-definitions-v1
+OPP-MEDICAL-INCOMPLETE,demo-acts-1-3,主动了解医疗保障但未完成测算,近期主动浏览医疗保障并开始但尚未完成测算,近期医疗保障浏览|医疗测算已开始|医疗测算未完成,主动咨询|多次浏览,行为已过期|测算已经完成,opportunity-definitions-v1

@@ -1,0 +1,2 @@
+﻿scenario_id,scenario_version,baseline_at,random_seed,data_mode,data_definition_version,rule_version,description
+demo-acts-1-3,1.0.0,2026-09-15T09:00:00+08:00,20260915,synthetic,acts-1-3-data-v1,acts-1-3-rules-v1,领导演示前三幕：经营目标理解、多机会洞察与自动圈客
