@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 .env
+.vite/
 dist/
 build/
 node_modules/
