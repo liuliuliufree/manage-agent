@@ -22,37 +22,37 @@
 
 ## 2. 场景摘要
 
-| 项目 | 当前值 |
-|---|---|
-| 场景标识 | `demo-acts-1-3` |
-| 场景版本 | `1.0.0` |
-| 数据模式 | `synthetic` |
-| 数据基准时间 | `2026-09-15T09:00:00+08:00` |
-| 客户总数 | 120 |
-| 第一类机会规模 | 86 |
-| 第二类机会规模 | 50 |
-| 第三类机会规模 | 25 |
-| 第一类机会可经营人数 | 41 |
-| 第一类机会高优先级人数 | 12 |
+| 项目                   | 当前值                        |
+| ---------------------- | ----------------------------- |
+| 场景标识               | `demo-acts-1-3`             |
+| 场景版本               | `1.0.0`                     |
+| 数据模式               | `synthetic`                 |
+| 数据基准时间           | `2026-09-15T09:00:00+08:00` |
+| 客户总数               | 120                           |
+| 第一类机会规模         | 86                            |
+| 第二类机会规模         | 50                            |
+| 第三类机会规模         | 25                            |
+| 第一类机会可经营人数   | 41                            |
+| 第一类机会高优先级人数 | 12                            |
 
 三个机会允许存在客户重叠，因此三个机会规模之和不等于客户总数。
 
 ## 3. 文件清单
 
-| 文件 | 数据行数 | 主要用途 |
-|---|---:|---|
-| `scenario.csv` | 1 | 场景版本、基准时间和规则版本 |
-| `business_request.csv` | 1 | 第一幕的经营目标和用户边界 |
-| `customer_profile.csv` | 120 | 客户基础画像 |
-| `family_responsibility_fact.csv` | 120 | 家庭责任和所需保障额度 |
-| `policy_coverage.csv` | 120 | 已有重疾保障和保单周年日 |
-| `authorization.csv` | 240 | 数据使用授权与经营接触授权 |
-| `behavior_event.csv` | 112 | 浏览、测算、咨询和家庭信息更新事件 |
-| `contact_event.csv` | 41 | 历史经营触达和明确拒绝事件 |
-| `sensitive_status.csv` | 6 | 投诉、理赔等敏感状态 |
-| `suitability_fact.csv` | 120 | 初步适当性所需事实 |
-| `opportunity_definition.csv` | 3 | 三个候选机会的业务定义 |
-| `calculation_rule.csv` | 17 | 机会、初筛和优先级计算参数 |
+| 文件                               | 数据行数 | 主要用途                           |
+| ---------------------------------- | -------: | ---------------------------------- |
+| `scenario.csv`                   |        1 | 场景版本、基准时间和规则版本       |
+| `business_request.csv`           |        1 | 第一幕的经营目标和用户边界         |
+| `customer_profile.csv`           |      120 | 客户基础画像                       |
+| `family_responsibility_fact.csv` |      120 | 家庭责任和所需保障额度             |
+| `policy_coverage.csv`            |      120 | 已有重疾保障和保单周年日           |
+| `authorization.csv`              |      240 | 数据使用授权与经营接触授权         |
+| `behavior_event.csv`             |      112 | 浏览、测算、咨询和家庭信息更新事件 |
+| `contact_event.csv`              |       41 | 历史经营触达和明确拒绝事件         |
+| `sensitive_status.csv`           |        6 | 投诉、理赔等敏感状态               |
+| `suitability_fact.csv`           |      120 | 初步适当性所需事实                 |
+| `opportunity_definition.csv`     |        3 | 三个候选机会的业务定义             |
+| `calculation_rule.csv`           |       17 | 机会、初筛和优先级计算参数         |
 
 CSV 使用 UTF-8 with BOM 编码，便于在 Windows 和 Excel 中直接查看。时间戳使用 ISO 8601 格式并带 `+08:00` 时区。
 
@@ -114,31 +114,31 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 一行代表一套可重复运行的演示场景。
 
-| 字段 | 含义 |
-|---|---|
-| `scenario_id` | 场景唯一标识 |
-| `scenario_version` | 场景内容版本 |
-| `baseline_at` | 相对时间统一基准 |
-| `random_seed` | 批量生成和并列排序的固定种子 |
-| `data_mode` | 数据模式，当前固定为 `synthetic` |
-| `data_definition_version` | 数据字段和口径版本 |
-| `rule_version` | 当前规则版本 |
-| `description` | 场景的人类可读说明 |
+| 字段                        | 含义                              |
+| --------------------------- | --------------------------------- |
+| `scenario_id`             | 场景唯一标识                      |
+| `scenario_version`        | 场景内容版本                      |
+| `baseline_at`             | 相对时间统一基准                  |
+| `random_seed`             | 批量生成和并列排序的固定种子      |
+| `data_mode`               | 数据模式，当前固定为`synthetic` |
+| `data_definition_version` | 数据字段和口径版本                |
+| `rule_version`            | 当前规则版本                      |
+| `description`             | 场景的人类可读说明                |
 
 ### 6.2 `business_request.csv`
 
 保存第一幕中经营人员实际输入的信息，不包含 Agent 整理后的结构化任务。
 
-| 字段 | 含义 |
-|---|---|
-| `request_id` | 请求标识 |
-| `scenario_id` | 所属场景 |
-| `goal_text` | 经营人员的原始自然语言目标 |
-| `analysis_window` | 用户指定的分析范围 |
-| `desired_outcome` | 希望得到的经营结果 |
-| `boundaries` | 三条用户边界组成的 JSON 数组 |
-| `requested_at` | 请求时间 |
-| `requester_role` | 请求主体角色 |
+| 字段                | 含义                         |
+| ------------------- | ---------------------------- |
+| `request_id`      | 请求标识                     |
+| `scenario_id`     | 所属场景                     |
+| `goal_text`       | 经营人员的原始自然语言目标   |
+| `analysis_window` | 用户指定的分析范围           |
+| `desired_outcome` | 希望得到的经营结果           |
+| `boundaries`      | 三条用户边界组成的 JSON 数组 |
+| `requested_at`    | 请求时间                     |
+| `requester_role`  | 请求主体角色                 |
 
 `boundaries` 虽然位于 CSV 单元格中，但内容是 JSON 数组。每条边界包含原文、来源和是否属于硬边界。主 Agent 可以整理其表达，但不能放宽硬边界。
 
@@ -146,16 +146,16 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 保存前三幕实际消费的最小客户画像。
 
-| 字段 | 含义 |
-|---|---|
-| `scenario_id` | 所属场景 |
-| `customer_id` | 合成客户标识 |
-| `age` | 演示使用的年龄 |
-| `family_stage` | 家庭阶段 |
-| `dependent_count` | 被抚养人数 |
-| `income_band` | 年收入区间 |
+| 字段                      | 含义             |
+| ------------------------- | ---------------- |
+| `scenario_id`           | 所属场景         |
+| `customer_id`           | 合成客户标识     |
+| `age`                   | 演示使用的年龄   |
+| `family_stage`          | 家庭阶段         |
+| `dependent_count`       | 被抚养人数       |
+| `income_band`           | 年收入区间       |
 | `payment_capacity_band` | 持续缴费能力区间 |
-| `profile_updated_at` | 画像更新时间 |
+| `profile_updated_at`    | 画像更新时间     |
 
 `income_band` 和 `payment_capacity_band` 是合成区间，不是精确收入或正式财务评估。
 
@@ -170,17 +170,17 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 保存家庭责任和保障需求测算的原始输入。
 
-| 字段 | 含义 |
-|---|---|
-| `fact_id` | 家庭责任事实标识 |
-| `scenario_id` | 所属场景 |
-| `customer_id` | 客户标识 |
-| `responsibility_level` | 家庭责任级别 |
+| 字段                         | 含义                         |
+| ---------------------------- | ---------------------------- |
+| `fact_id`                  | 家庭责任事实标识             |
+| `scenario_id`              | 所属场景                     |
+| `customer_id`              | 客户标识                     |
+| `responsibility_level`     | 家庭责任级别                 |
 | `required_coverage_amount` | 按场景口径测算的所需保障额度 |
-| `source_type` | 信息来源 |
-| `occurred_at` | 信息产生或更新时间 |
-| `valid_until` | 事实有效期 |
-| `authorization_id` | 允许使用该事实的授权记录 |
+| `source_type`              | 信息来源                     |
+| `occurred_at`              | 信息产生或更新时间           |
+| `valid_until`              | 事实有效期                   |
+| `authorization_id`         | 允许使用该事实的授权记录     |
 
 当前 `source_type` 使用：
 
@@ -199,18 +199,18 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 当前每位客户有一条有效重疾保障记录。
 
-| 字段 | 含义 |
-|---|---|
-| `policy_id` | 合成保单标识 |
-| `scenario_id` | 所属场景 |
-| `customer_id` | 客户标识 |
-| `coverage_type` | 保障类别，当前为 `critical_illness` |
-| `insured_amount` | 当前有效保障额度 |
-| `annual_premium` | 年缴保费 |
-| `payment_period` | 缴费周期 |
-| `effective_at` | 保单生效时间 |
-| `next_anniversary_date` | 下一保单周年日 |
-| `status` | 保单状态，当前为 `active` |
+| 字段                      | 含义                                 |
+| ------------------------- | ------------------------------------ |
+| `policy_id`             | 合成保单标识                         |
+| `scenario_id`           | 所属场景                             |
+| `customer_id`           | 客户标识                             |
+| `coverage_type`         | 保障类别，当前为`critical_illness` |
+| `insured_amount`        | 当前有效保障额度                     |
+| `annual_premium`        | 年缴保费                             |
+| `payment_period`        | 缴费周期                             |
+| `effective_at`          | 保单生效时间                         |
+| `next_anniversary_date` | 下一保单周年日                       |
+| `status`                | 保单状态，当前为`active`           |
 
 第二类机会通过 `next_anniversary_date` 与场景基准日期的距离计算。
 
@@ -223,19 +223,19 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 两者必须分别判断。允许系统分析客户已授权的数据，不代表允许向该客户开展经营接触。
 
-| 字段 | 含义 |
-|---|---|
-| `authorization_id` | 授权标识 |
-| `scenario_id` | 所属场景 |
-| `customer_id` | 客户标识 |
-| `scope` | `data_use` 或 `business_contact` |
-| `data_category` | 被授权使用的数据类别；经营接触记录可为空 |
-| `purpose` | 授权用途 |
-| `status` | `active` 或 `withdrawn` |
-| `effective_at` | 生效时间 |
-| `expires_at` | 失效时间 |
-| `source` | 授权来源 |
-| `withdrawn_at` | 撤回时间，未撤回时为空 |
+| 字段                 | 含义                                     |
+| -------------------- | ---------------------------------------- |
+| `authorization_id` | 授权标识                                 |
+| `scenario_id`      | 所属场景                                 |
+| `customer_id`      | 客户标识                                 |
+| `scope`            | `data_use` 或 `business_contact`     |
+| `data_category`    | 被授权使用的数据类别；经营接触记录可为空 |
+| `purpose`          | 授权用途                                 |
+| `status`           | `active` 或 `withdrawn`              |
+| `effective_at`     | 生效时间                                 |
+| `expires_at`       | 失效时间                                 |
+| `source`           | 授权来源                                 |
+| `withdrawn_at`     | 撤回时间，未撤回时为空                   |
 
 当前不包含短信、电话、App 等具体渠道许可；该部分属于后续策略与执行环节。
 
@@ -243,16 +243,16 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 保存客户主动行为，事件本身不携带“高意向”结论。
 
-| 字段 | 含义 |
-|---|---|
-| `event_id` | 行为事件标识 |
-| `scenario_id` | 所属场景 |
-| `customer_id` | 客户标识 |
-| `event_type` | 行为类型 |
-| `subject` | 行为对象，例如重疾或医疗保障 |
-| `occurred_at` | 行为发生时间 |
-| `source` | 事件来源 |
-| `metadata` | 预留的少量事件补充信息，当前为 `{}` |
+| 字段            | 含义                                 |
+| --------------- | ------------------------------------ |
+| `event_id`    | 行为事件标识                         |
+| `scenario_id` | 所属场景                             |
+| `customer_id` | 客户标识                             |
+| `event_type`  | 行为类型                             |
+| `subject`     | 行为对象，例如重疾或医疗保障         |
+| `occurred_at` | 行为发生时间                         |
+| `source`      | 事件来源                             |
+| `metadata`    | 预留的少量事件补充信息，当前为`{}` |
 
 当前 `event_type` 包括：
 
@@ -272,16 +272,16 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 保存已经发生的经营触达，用于频控和明确拒绝判断。
 
-| 字段 | 含义 |
-|---|---|
-| `event_id` | 触达事件标识 |
-| `scenario_id` | 所属场景 |
-| `customer_id` | 客户标识 |
-| `contact_type` | 当前为 `marketing` |
-| `purpose` | 当前为 `protection_review` |
-| `occurred_at` | 触达发生时间 |
-| `result` | 触达结果 |
-| `source` | 事件来源 |
+| 字段             | 含义                        |
+| ---------------- | --------------------------- |
+| `event_id`     | 触达事件标识                |
+| `scenario_id`  | 所属场景                    |
+| `customer_id`  | 客户标识                    |
+| `contact_type` | 当前为`marketing`         |
+| `purpose`      | 当前为`protection_review` |
+| `occurred_at`  | 触达发生时间                |
+| `result`       | 触达结果                    |
+| `source`       | 事件来源                    |
 
 当前 `result` 包括：
 
@@ -295,16 +295,16 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 只记录当前会暂停经营的敏感状态，不保存投诉或理赔详情。
 
-| 字段 | 含义 |
-|---|---|
-| `status_id` | 敏感状态标识 |
-| `scenario_id` | 所属场景 |
-| `customer_id` | 客户标识 |
-| `status_type` | `claim_in_progress` 或 `complaint_in_progress` |
-| `started_at` | 状态开始时间 |
-| `expected_end_at` | 预计结束或复核时间 |
-| `status` | 当前为 `active` |
-| `source` | 状态来源 |
+| 字段                | 含义                                               |
+| ------------------- | -------------------------------------------------- |
+| `status_id`       | 敏感状态标识                                       |
+| `scenario_id`     | 所属场景                                           |
+| `customer_id`     | 客户标识                                           |
+| `status_type`     | `claim_in_progress` 或 `complaint_in_progress` |
+| `started_at`      | 状态开始时间                                       |
+| `expected_end_at` | 预计结束或复核时间                                 |
+| `status`          | 当前为`active`                                   |
+| `source`          | 状态来源                                           |
 
 未出现在该表中的客户表示当前没有已知的敏感阻断状态。
 
@@ -312,17 +312,17 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 保存初步适当性判断需要的事实，不直接保存最终是否通过。
 
-| 字段 | 含义 |
-|---|---|
-| `fact_id` | 事实标识 |
-| `scenario_id` | 所属场景 |
-| `customer_id` | 客户标识 |
-| `information_complete` | 初步信息是否完整 |
-| `payment_capacity_available` | 是否存在缴费能力依据 |
-| `candidate_scope_available` | 是否存在可进一步评估的产品范围 |
-| `professional_review_required` | 是否必须由专业人员继续确认 |
-| `evaluated_at` | 事实更新时间 |
-| `definition_version` | 适当性事实口径版本 |
+| 字段                             | 含义                           |
+| -------------------------------- | ------------------------------ |
+| `fact_id`                      | 事实标识                       |
+| `scenario_id`                  | 所属场景                       |
+| `customer_id`                  | 客户标识                       |
+| `information_complete`         | 初步信息是否完整               |
+| `payment_capacity_available`   | 是否存在缴费能力依据           |
+| `candidate_scope_available`    | 是否存在可进一步评估的产品范围 |
+| `professional_review_required` | 是否必须由专业人员继续确认     |
+| `evaluated_at`                 | 事实更新时间                   |
+| `definition_version`           | 适当性事实口径版本             |
 
 当前所有客户的 `professional_review_required` 都为 `true`，表示第三幕最多允许进入保障检视，不能直接形成具体产品销售建议。该字段为 `true` 不代表初筛失败。
 
@@ -330,24 +330,24 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 三行分别定义三个候选机会：
 
-| `opportunity_id` | 机会 |
-|---|---|
-| `OPP-FAMILY-CI-GAP` | 家庭责任变化与重疾保障缺口 |
-| `OPP-POLICY-ANNIVERSARY` | 临近保单周年的保障回顾 |
+| `opportunity_id`         | 机会                         |
+| -------------------------- | ---------------------------- |
+| `OPP-FAMILY-CI-GAP`      | 家庭责任变化与重疾保障缺口   |
+| `OPP-POLICY-ANNIVERSARY` | 临近保单周年的保障回顾       |
 | `OPP-MEDICAL-INCOMPLETE` | 主动了解医疗保障但未完成测算 |
 
 字段说明：
 
-| 字段 | 含义 |
-|---|---|
-| `opportunity_id` | 机会标识 |
-| `scenario_id` | 所属场景 |
-| `name` | 机会名称 |
-| `description` | 业务定义 |
-| `required_signals` | 必须满足的信号，以 `|` 分隔 |
-| `optional_signals` | 增强机会或评分的信号 |
+| 字段                     | 含义                   |
+| ------------------------ | ---------------------- |
+| `opportunity_id`       | 机会标识               |
+| `scenario_id`          | 所属场景               |
+| `name`                 | 机会名称               |
+| `description`          | 业务定义               |
+| `required_signals`     | 必须满足的信号，以 `   |
+| `optional_signals`     | 增强机会或评分的信号   |
 | `exclusion_conditions` | 机会识别阶段的排除条件 |
-| `definition_version` | 机会定义版本 |
+| `definition_version`   | 机会定义版本           |
 
 该表描述业务口径，不保存每位客户是否命中机会。
 
@@ -355,17 +355,17 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 保存当前生成器和后续确定性 Tool 使用的透明参数。
 
-| 字段 | 含义 |
-|---|---|
-| `rule_id` | 规则标识 |
-| `scenario_id` | 所属场景 |
-| `rule_group` | `OPPORTUNITY`、`ELIGIBILITY` 或 `PRIORITY` |
-| `parameter_name` | 参数名称 |
-| `parameter_value` | 参数值 |
-| `value_type` | `integer` 或 `decimal` |
-| `effective_at` | 生效时间 |
-| `version` | 规则版本 |
-| `description` | 参数的业务含义 |
+| 字段                | 含义                                             |
+| ------------------- | ------------------------------------------------ |
+| `rule_id`         | 规则标识                                         |
+| `scenario_id`     | 所属场景                                         |
+| `rule_group`      | `OPPORTUNITY`、`ELIGIBILITY` 或 `PRIORITY` |
+| `parameter_name`  | 参数名称                                         |
+| `parameter_value` | 参数值                                           |
+| `value_type`      | `integer` 或 `decimal`                       |
+| `effective_at`    | 生效时间                                         |
+| `version`         | 规则版本                                         |
+| `description`     | 参数的业务含义                                   |
 
 主要规则包括：
 
@@ -422,13 +422,13 @@ CSV 中的空字符串表示该字段在当前记录上不适用。例如数据�
 
 当前有 41 名客户通过。45 名排除客户按主要原因分布为：
 
-| 客户范围 | 主要原因 | 人数 |
-|---|---|---:|
-| C042–C055 | 经营接触授权已撤回 | 14 |
-| C056–C064 | 近 7 天触达达到 3 次 | 9 |
-| C065–C071 | 已明确拒绝 | 7 |
-| C072–C077 | 投诉或理赔处理中 | 6 |
-| C078–C086 | 初步适当性事实不足 | 9 |
+| 客户范围   | 主要原因             | 人数 |
+| ---------- | -------------------- | ---: |
+| C042–C055 | 经营接触授权已撤回   |   14 |
+| C056–C064 | 近 7 天触达达到 3 次 |    9 |
+| C065–C071 | 已明确拒绝           |    7 |
+| C072–C077 | 投诉或理赔处理中     |    6 |
+| C078–C086 | 初步适当性事实不足   |    9 |
 
 如果未来某位客户同时命中多个排除原因，系统仍应保存全部命中记录，并按固定优先级选择一个主要展示原因。
 

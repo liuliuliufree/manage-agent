@@ -35,7 +35,7 @@ src/manage/
 └─ __main__.py          命令行入口
 
 web/src/
-├─ App.tsx          对话工作区和动态执行轨迹
+├─ App.tsx          居中输入页、左右对话流、过程与 Markdown 回答
 ├─ chatStream.ts    真实 SSE 客户端
 ├─ types.ts         与后端事件对应的通用前端状态
 └─ styles.css       响应式视觉样式
@@ -74,4 +74,4 @@ trace_start
   → trace_end
 ```
 
-API 将内部事件投影为 `trace`、`turn`、`tool`、`delta`、`done` 和 `error`。`tool` 事件携带所属 Turn、输入参数和解析后的结果，`delta` 携带所属 Turn。前端据此按 Turn 分离中间说明与最终回答，并依据 Tool 调用标识动态更新可展开的调用结果，不预创建固定幕次。取消请求会停止消费本次事件流，不影响其他请求。
+API 将内部事件投影为 `trace`、`turn`、`tool`、`delta`、`done` 和 `error`。`tool` 事件携带所属 Turn、输入参数和解析后的结果，`delta` 携带所属 Turn。前端在内部按 Turn 归属组织内容，但页面不显示该技术概念；公开说明保持可见，Tool 详情默认折叠，正常结束时将最后一段文本确认为 Markdown 正文且不重复展示。取消请求会停止消费本次事件流，不影响其他请求。

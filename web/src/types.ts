@@ -25,8 +25,10 @@ export interface ChatMessage {
   turnOutputs?: TurnOutput[];
   traceId?: string;
   activeTurn?: number;
+  finalTurn?: number;
   streaming?: boolean;
   error?: boolean;
+  errorMessage?: string;
 }
 
 export type StreamEvent =
