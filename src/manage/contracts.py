@@ -1,15 +1,15 @@
-"""Structured products returned by the acts 1-3 business capabilities."""
+"""Structured products returned by management-analysis capabilities."""
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
 class ResultMetadata:
-    scenario_id: str
-    scenario_version: str
+    data_source_id: str
+    data_source_version: str
     baseline_at: str
     data_mode: str
     data_definition_version: str
@@ -94,31 +94,3 @@ class CustomerDecision:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
-
-@dataclass(slots=True)
-class ActsAnalysisResult:
-    """End-to-end Agent result plus deterministic business artifacts."""
-
-    answer: str
-    business_context: dict[str, Any]
-    opportunity_analysis: dict[str, Any]
-    segment_result: dict[str, Any]
-    customer_decisions: list[dict[str, Any]] = field(default_factory=list)
-    degraded: bool = False
-    degradation_reason: str | None = None
-    trace: Any | None = None
-
-    def to_dict(self, *, include_trace: bool = False) -> dict[str, Any]:
-        result = {
-            "answer": self.answer,
-            "business_context": self.business_context,
-            "opportunity_analysis": self.opportunity_analysis,
-            "segment_result": self.segment_result,
-            "customer_decisions": self.customer_decisions,
-            "degraded": self.degraded,
-            "degradation_reason": self.degradation_reason,
-        }
-        if include_trace:
-            result["trace"] = self.trace
-        return result

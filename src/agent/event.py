@@ -17,6 +17,7 @@ AgentEventType = Literal[
     "text_delta",
     "thinking_delta",
     "tool_call_delta",
+    "tool_start",
     "turn_end",
     "trace_end",
 ]
@@ -33,3 +34,7 @@ class AgentEvent:
     chunk: ChatCompletionChunk | None = None
     delta: str | None = None
     tool_call_index: int | None = None
+    tool_call_id: str | None = None
+    tool_name: str | None = None
+    tool_title: str | None = None
+    tool_arguments: str | None = None

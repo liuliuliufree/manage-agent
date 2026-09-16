@@ -21,6 +21,7 @@ class Tool:
     description: str
     parameters: Mapping[str, Any]
     handler: ToolHandler
+    title: str | None = None
     _validator: Validator = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:

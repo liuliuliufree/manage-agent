@@ -2,47 +2,48 @@
 
 ## 系统快照
 
-项目当前具备 OpenAI-compatible 模型调用层、可观察的 Agent Loop、JSON Schema Tool 参数校验和确定性 Fake 模型，以及一个 Node.js + React 的前三幕对话前端。
+项目具备 OpenAI-compatible 模型调用层、可观察的 Agent Loop、自动发现的业务 Tool、通用经营 Agent、FastAPI SSE 接口和 React 对话前端。
 
-前三幕领导演示已形成基于合成数据的最小后端闭环：系统可以加载经营目标与边界、确定性计算并比较三个机会、推荐重点机会、执行自动圈客，并按需返回客户级决策证据。主 Agent 通过四个业务 Tool 使用这些能力；模型未完成必经调用或不可用时，系统保留确定性结果并使用模板降级。React 前端提供单对话工作区、三幕进度与流式文本呈现；当前使用内置合成演示流，尚未提供连接 Python 用例的 HTTP 流式接口或跨进程运行状态。
+一次用户请求创建一个独立 Trace；Trace 由多个 Turn 组成。每个 Turn 可以产生模型文本和一个或多个 Tool 调用，模型观察 Tool 结果后自主决定下一步，直到直接回答或达到工具轮次上限。应用层不规定固定幕次、必经工具、固定机会或固定产物，也不在模型漏调工具时暗中补跑预设流程。
+
+当前合成数据仍可稳定展示原前三幕故事：读取经营目标与边界、比较三个机会、推荐重点机会、执行客户筛选并按需解释客户证据。这是当前数据与工具能力的展示，不是 Agent 的阶段模型。
 
 ## 当前能力
 
-- 生成 12 份前三幕原始输入 CSV 和 1 份隔离的测试期望 CSV。
-- 从原始 CSV 重新计算三个机会的规模、需求强度、响应潜力、风险、置信度、相对成本和综合分，并稳定推荐第一类机会。
-- 验证第一类机会的 86→41→12 漏斗、五类排除原因和高优先级客户集合。
-- 验证 C001、C028 的初始圈客结果以及数据关联、时间和生成确定性。
-- 返回经营任务、机会组合、客群筛选和客户决策证据等结构化产物，并携带场景、数据和规则版本。
-- 通过 `get_business_context`、`analyze_opportunities`、`segment_opportunity_customers` 和 `explain_customer_decision` 四个业务 Tool 支持主 Agent 调用。
-- 通过 `web/` 中的 React 前端展示前三幕对话，支持逐字流、停止生成、移动端布局，并可通过环境变量切换到 SSE 或 NDJSON 流式接口。
+- `src/manage/tools/` 中每个非私有模块通过 `create_tool(context)` 声明一个 Tool；运行时按模块自动发现并暴露给 Agent。
+- 当前提供经营上下文、机会分析、机会客群筛选和客户决策证据四个确定性 Tool；四者可独立调用，不存在代码强制调用顺序。
+- `src/manage/prompts/` 保存稳定角色提示词和运行时消息模板；提示词要求模型自主选取工具，不假设固定流程。
+- `src/manage/agent.py` 创建单次运行、Trace、Turn 和工具上下文，并同时支持事件流与完整结果。
+- `src/manage/api.py` 提供真实的 `POST /api/chat/stream` SSE 接口，流式返回 Trace、Turn、Tool 输入与结果、模型公开文本和终止事件。
+- React 前端默认请求真实后端，并按 Turn 分组模型公开的中间说明，动态渲染实际 Tool 及可展开的结构化结果；没有固定三幕数组或内置答案流。
+- 当前合成数据仍能重算三个机会及第一类机会的 86→41→12 漏斗，并返回可追溯的客户级规则和评分证据。
 
 ## 核心契约与边界
 
-- 场景使用 120 名合成客户，基准时间为 2026-09-15 09:00（Asia/Shanghai）。
-- 原始数据与测试期望分目录保存；测试期望不得作为业务运行输入。
-- 正常业务结果必须从客户、保障、授权、行为、触达、敏感状态和适当性事实计算。
-- 正常业务代码不读取 `test_expectations/`；数据生成器的结果校验复用正式业务实现。
-- 机会综合分权重为规模 0.35、需求 0.25、响应 0.20、置信度 0.10、风险扣减 0.05、成本扣减 0.05，权重来自规则快照。
-- 高分不能覆盖授权、拒绝、敏感状态、频控或初步适当性硬规则失败。
-- 当前预计响应和触达成本仅为演示用透明规则指标，不代表生产预测结果。
+- Agent Core 不感知具体业务；`ManageAgent` 只组合模型、通用循环、提示词和自动发现的 Tool。
+- 普通代码负责授权、拒绝、敏感状态、频控、适当性、指标和排序等确定性计算；模型负责理解目标、选择能力、观察结果和组织回答。
+- 每次运行使用独立 `ToolContext`，其中缓存同一数据源的业务服务并记录本次实际 Tool 产物，不跨请求共享运行状态。
+- Tool 参数和结果使用 `data_source_id`；底层现有 CSV 仍保留历史字段 `scenario_id`，该字段只属于当前数据格式。
+- 当前数据源包含 120 名合成客户，基准时间为 2026-09-15 09:00（Asia/Shanghai）；测试期望与业务 source 隔离。
+- 高分不能覆盖任何硬规则失败。合成数据、预计响应、成本和综合分不得表述为生产事实。
 
 ## 已知限制
 
-- 当前场景数据用于演示自洽性，不具有统计代表性。
-- 当前 Python Agent 只提供本地入口，尚无 FastAPI 流式接口；前端默认使用内置演示流，不能直接触发真实 Agent。
-- 经营任务和前三幕产物只在单次调用中返回，尚未持久化为公共 Demo 运行状态。
-- 其他机会可以执行圈客，但首套场景的评分与故事验收重点仍是第一类机会。
-- C028 在第三幕后触发频控的后续事件尚未纳入本次前三幕数据集。
+- 当前只有一份覆盖原前三幕故事的合成数据，尚未提供后续故事所需的数据和 Tool；新增后续能力时无需改变 Agent Loop、HTTP 事件或前端步骤模型。
+- 当前请求彼此独立，尚未实现跨请求会话历史、运行持久化、认证和生产级并发治理。
+- 当前确定性经营服务实现了现有三类机会规则；新机会仍需增加相应的普通代码能力或外部适配器。
+- HTTP 接口依赖可用的 OpenAI-compatible 模型配置；模型不可用时返回明确错误，不伪造业务答案。
 
 ## 任务入口
 
 - 生成并校验数据：`.\.venv\Scripts\python.exe scripts\generate_demo_mock_data.py`
-- 只校验已有数据：`.\.venv\Scripts\python.exe scripts\generate_demo_mock_data.py --validate-only`
-- 运行前三幕 Agent：先设置 `PYTHONPATH=src`，再执行 `.\.venv\Scripts\python.exe -m manage "分析近期值得重点经营的加保机会"`
-- 运行数据测试：`.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v`
-- 启动前三幕前端：进入 `web/` 后执行 `npm install` 和 `npm run dev`
-- 构建前三幕前端：进入 `web/` 后执行 `npm run build`
+- 校验已有数据：`.\.venv\Scripts\python.exe scripts\generate_demo_mock_data.py --validate-only`
+- 运行 Agent：先设置 `$env:PYTHONPATH = "src"`，再执行 `.\.venv\Scripts\python.exe -m manage "<请求>"`
+- 启动 API：先设置 `$env:PYTHONPATH = "src"`，再执行 `.\.venv\Scripts\python.exe -m uvicorn manage.api:app --reload`
+- 运行测试：`.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v`
+- 启动前端：进入 `web/` 后执行 `npm run dev`
+- 构建前端：进入 `web/` 后执行 `npm run build`
 
 ## 最近验证基线
 
-2026-09-15：生成器内置校验通过；11 项数据、业务 Tool 和 Agent 闭环测试通过；Python 字节码编译通过；React 前端 TypeScript 检查与 Vite 生产构建通过；本轮未执行真实模型冒烟，内置浏览器连接不可用，未完成截图级视觉验证。
+2026-09-16：12 项数据、确定性业务能力、Tool 自动发现、Agent 自主调用、事件生命周期和真实 HTTP SSE 契约测试通过；前端 TypeScript 检查与 Vite 生产构建通过。生产构建因现有 `web/dist` 文件权限无法清理，使用新的临时输出目录完成，未覆盖仓库中的旧构建产物。本轮未执行真实模型冒烟和浏览器截图验证。

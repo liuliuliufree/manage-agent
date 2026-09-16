@@ -5,12 +5,12 @@ class ManageError(Exception):
     """Base class for expected management-analysis failures."""
 
 
-class ScenarioNotFoundError(ManageError):
-    """The requested scenario is not available."""
+class DataSourceNotFoundError(ManageError):
+    """The requested data source is not available."""
 
 
-class ScenarioDataError(ManageError):
-    """The scenario source facts are incomplete or inconsistent."""
+class DataSourceError(ManageError):
+    """The source facts are incomplete or inconsistent."""
 
 
 class BusinessRuleError(ManageError):
@@ -18,8 +18,8 @@ class BusinessRuleError(ManageError):
 
 
 class OpportunityNotFoundError(ManageError):
-    """The requested opportunity is not defined in the scenario."""
+    """The requested opportunity is not defined in the data source."""
 
 
 class CustomerNotFoundError(ManageError):
-    """The requested customer is not defined in the scenario."""
+    """The requested customer is not defined in the data source."""

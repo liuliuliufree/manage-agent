@@ -627,10 +627,10 @@ def validate_dataset(output_dir: Path) -> dict[str, object]:
         FAMILY_OPPORTUNITY,
         MEDICAL_OPPORTUNITY,
         ManageService,
-        ScenarioRepository,
+        BusinessDataRepository,
     )
 
-    service = ManageService(ScenarioRepository(output_dir.parent).load(SCENARIO_ID))
+    service = ManageService(BusinessDataRepository(output_dir.parent).load(SCENARIO_ID))
     context = service.get_business_context().to_dict()
     analysis = service.analyze_opportunities().to_dict()
     segment = service.segment_opportunity_customers(FAMILY_OPPORTUNITY).to_dict()

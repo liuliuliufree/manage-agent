@@ -1,4 +1,4 @@
-"""Tests for deterministic acts 1-3 management capabilities."""
+"""Tests for deterministic management capabilities and tool exposure."""
 
 from __future__ import annotations
 
@@ -14,19 +14,18 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from manage import (  # noqa: E402
     ANNIVERSARY_OPPORTUNITY,
+    BusinessDataRepository,
     FAMILY_OPPORTUNITY,
     MEDICAL_OPPORTUNITY,
-    ManageError,
     ManageService,
-    ManageToolSession,
-    ScenarioRepository,
 )
+from manage.tools import ToolContext, discover_tools  # noqa: E402
 
 
 class ManageServiceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        repository = ScenarioRepository(ROOT / "data" / "scenarios")
+        repository = BusinessDataRepository(ROOT / "data" / "scenarios")
         cls.service = ManageService(repository.load("demo-acts-1-3"))
 
     def test_business_context_keeps_boundaries_and_versions(self) -> None:
@@ -148,7 +147,7 @@ class ManageServiceTests(unittest.TestCase):
             scenario_dir = Path(temp_dir) / "scenario_without_expectations"
             shutil.copytree(source, scenario_dir / "source")
             service = ManageService(
-                ScenarioRepository(temp_dir).load("demo-acts-1-3")
+                BusinessDataRepository(temp_dir).load("demo-acts-1-3")
             )
 
             self.assertEqual(
@@ -156,16 +155,29 @@ class ManageServiceTests(unittest.TestCase):
                 FAMILY_OPPORTUNITY,
             )
 
-    def test_tools_enforce_the_business_call_order(self) -> None:
-        session = ManageToolSession(
-            ScenarioRepository(ROOT / "data" / "scenarios")
+    def test_tools_are_discovered_and_can_run_independently(self) -> None:
+        context = ToolContext(
+            BusinessDataRepository(ROOT / "data" / "scenarios")
         )
-        tools = {tool.name: tool for tool in session.tools()}
+        tools = {tool.name: tool for tool in discover_tools(context)}
 
-        with self.assertRaisesRegex(ManageError, "get_business_context"):
-            tools["analyze_opportunities"].handler(
-                {"scenario_id": "demo-acts-1-3"}
-            )
+        self.assertEqual(
+            set(tools),
+            {
+                "get_business_context",
+                "analyze_opportunities",
+                "segment_opportunity_customers",
+                "explain_customer_decision",
+            },
+        )
+        segment = tools["segment_opportunity_customers"].handler(
+            {
+                "data_source_id": "demo-acts-1-3",
+                "opportunity_id": FAMILY_OPPORTUNITY,
+            }
+        )
+        self.assertEqual(segment["funnel"]["priority_customers"], 12)
+        self.assertEqual(context.artifacts[0]["tool_name"], "segment_opportunity_customers")
 
 
 if __name__ == "__main__":

@@ -189,6 +189,19 @@ class AgentLoop:
                 history.append(cast(ChatCompletionMessageParam, assistant_message))
                 for index in sorted(tool_calls):
                     tool_call = tool_calls[index]
+                    yield AgentEvent(
+                        type="tool_start",
+                        trace=active_trace,
+                        turn=active_turn,
+                        tool_call_id=tool_call.id,
+                        tool_name=tool_call.name,
+                        tool_title=(
+                            self._tools[tool_call.name].title
+                            if tool_call.name in self._tools
+                            else None
+                        ),
+                        tool_arguments=tool_call.arguments,
+                    )
                     execution = await self._execute_tool(
                         tool_call.id,
                         tool_call.name,
@@ -200,6 +213,11 @@ class AgentLoop:
                         trace=active_trace,
                         turn=active_turn,
                         tool_execution=execution,
+                        tool_title=(
+                            self._tools[execution.name].title
+                            if execution.name in self._tools
+                            else None
+                        ),
                     )
                     history.append(
                         cast(

@@ -1,4 +1,4 @@
-"""Deterministic business capabilities for the first three demo acts."""
+"""Deterministic management-analysis capabilities."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from .errors import (
     CustomerNotFoundError,
     OpportunityNotFoundError,
 )
-from .repository import ScenarioSnapshot
+from .data_repository import BusinessDataSnapshot
 
 
 FAMILY_OPPORTUNITY = "OPP-FAMILY-CI-GAP"
@@ -41,7 +41,7 @@ EXCLUSION_LABELS = {
 class ManageService:
     """Compute opportunity and customer decisions from one immutable snapshot."""
 
-    def __init__(self, snapshot: ScenarioSnapshot) -> None:
+    def __init__(self, snapshot: BusinessDataSnapshot) -> None:
         self.snapshot = snapshot
         self._customers = self._unique_by("customer_profile.csv", "customer_id")
         self._family_facts = self._unique_by(
@@ -64,7 +64,7 @@ class ManageService:
         rows = self.snapshot.tables["business_request.csv"]
         if len(rows) != 1:
             raise BusinessRuleError(
-                "The first demo version requires exactly one business request"
+                "The data snapshot requires exactly one business request"
             )
         row = rows[0]
         try:
@@ -214,7 +214,7 @@ class ManageService:
             for index, item in enumerate(ordered, 1)
         )
         if not opportunities:
-            raise BusinessRuleError("Scenario does not define any opportunities")
+            raise BusinessRuleError("Data source does not define any opportunities")
         return OpportunityAnalysis(
             metadata=self._metadata(),
             opportunities=opportunities,
@@ -871,14 +871,14 @@ class ManageService:
         return definition
 
     def _metadata(self) -> ResultMetadata:
-        scenario = self.snapshot.scenario
+        metadata = self.snapshot.metadata
         return ResultMetadata(
-            scenario_id=scenario["scenario_id"],
-            scenario_version=scenario["scenario_version"],
-            baseline_at=scenario["baseline_at"],
-            data_mode=scenario["data_mode"],
-            data_definition_version=scenario["data_definition_version"],
-            rule_version=scenario["rule_version"],
+            data_source_id=metadata["scenario_id"],
+            data_source_version=metadata["scenario_version"],
+            baseline_at=metadata["baseline_at"],
+            data_mode=metadata["data_mode"],
+            data_definition_version=metadata["data_definition_version"],
+            rule_version=metadata["rule_version"],
         )
 
     def _unique_by(self, filename: str, key: str) -> dict[str, dict[str, str]]:

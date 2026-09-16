@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- 2026-09-16 扩展 Agent SSE 可观察性：Tool 事件返回所属 Turn、输入参数和结构化结果，文本增量携带 Turn；前端按 Turn 分组模型公开的中间说明，并为每次 Tool 调用提供默认展开、可折叠的输入与结果视图。同时修复轨迹后正文被 CSS 网格放入角色窄栏导致逐词换行的问题。
+- 2026-09-16 将专用 `ActsOneToThreeAgent` 重构为通用 `ManageAgent`：每次请求创建独立 Trace，模型在多个 Turn 中自主选择 Tool、观察结果并决定下一步；移除应用层必经产物检查、固定机会选择和确定性模板补跑。
+- 将模型可见能力归入 `src/manage/tools/`，按非私有模块自动发现 `create_tool(context)`；现有四个 Tool 均可独立调用，不再通过会话标志强制固定顺序。提示词归入 `src/manage/prompts/`，不再包含固定幕次和工具路径。
+- 将 `ScenarioRepository` 替换为面向版本化事实的 `BusinessDataRepository`，对外 Tool 和 HTTP 契约统一使用 `data_source_id`；现有 CSV 的 `scenario_id` 仅作为历史数据格式保留。
+- 新增 FastAPI `POST /api/chat/stream`，把真实 Agent 的 Trace、Turn、Tool、文本与终止状态映射为 SSE；新增 HTTP 契约测试。
+- React 前端移除固定三幕状态和内置答案流，默认连接真实后端，并根据实际 Tool 事件动态渲染任意数量的执行步骤。
+- 2026-09-16 共执行 12 项数据、业务、Tool 自动发现、Agent 自主性、事件和 HTTP 测试通过，并通过 Python 编译与已有数据重算校验。前端 TypeScript 检查和使用全新临时输出目录的 Vite 生产构建通过；现有 `web/dist` 因文件权限未覆盖。
 - 新增 `web/` Node.js + React 前端：以单一对话工作区呈现前三幕，支持三幕执行进度、逐字流式输出、停止生成、键盘发送、响应式布局和减少动态效果偏好。
 - 新增可替换的流式接口适配层，支持 SSE/NDJSON 事件；未配置后端地址时使用与当前 86→41→12 场景一致的内置合成演示流，并明确保留演示数据标识。
 - 2026-09-15 完成前端 TypeScript 检查与 Vite 生产构建；本地开发服务返回 HTTP 200。因本机内置浏览器连接不可用，未完成截图级视觉验证。

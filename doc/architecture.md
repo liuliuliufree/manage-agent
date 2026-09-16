@@ -4,68 +4,74 @@
 
 ```text
 src/agent/
-├─ event.py         运行过程的结构化事件契约
-├─ tool.py          工具定义、JSON Schema 编译与参数校验边界
-├─ trace.py         Trace、Turn 与工具执行记录
-└─ loop.py          全 Turn 流式模型调用、工具执行与循环控制
+├─ event.py         Trace、Turn、Tool 生命周期事件
+├─ tool.py          Tool 定义和 JSON Schema 参数校验
+├─ trace.py         Trace、Turn 与 ToolExecution 状态
+└─ loop.py          多 Turn 模型调用、工具执行和终止控制
 
 src/model/
-├─ contract.py      ChatModel 结构化调用契约
-├─ settings.py      模型连接配置加载与校验
-├─ openai_chat.py   OpenAI-compatible Chat Completions 实现
-├─ fake.py          确定性测试实现
-└─ errors.py        稳定的模型调用错误边界
+├─ contract.py      ChatModel 契约
+├─ settings.py      OpenAI-compatible 配置
+├─ openai_chat.py   真实流式模型实现
+└─ fake.py          确定性测试模型
 
 src/manage/
-├─ repository.py    只读取场景 source 数据并校验快照、引用与规则版本
-├─ contracts.py     经营任务、机会组合、圈客、客户证据和 Agent 结果契约
-├─ service.py       三类机会、综合排序、硬规则、优先级和证据的确定性计算
-├─ tools.py         四个业务 Tool 及单次 Agent 运行的正式产物收集
-├─ prompts.py       稳定 System Prompt 与运行任务消息模板
-├─ workflow.py      前三幕 Agent 用例、必经产物检查和确定性降级
-└─ __main__.py      本地真实模型运行入口
+├─ agent.py             通用经营 Agent 与单次 ManageAgentRun
+├─ api.py               FastAPI SSE 边界和 Agent 事件映射
+├─ data_repository.py   版本化业务数据快照读取和一致性校验
+├─ contracts.py         确定性业务结果契约
+├─ service.py           当前机会、规则、筛选和证据计算
+├─ errors.py            稳定业务错误边界
+├─ prompts/
+│  └─ management.py             稳定角色约束与运行时消息模板
+├─ tools/
+│  ├─ __init__.py               自动扫描 Tool 模块并校验唯一名称
+│  ├─ _context.py              单 Trace 的依赖、服务缓存和产物观察
+│  ├─ _schema.py               共享参数 Schema 片段
+│  ├─ business_context.py      经营目标、边界和规则查询 Tool
+│  ├─ opportunity_analysis.py  机会识别、比较和排序 Tool
+│  ├─ customer_segmentation.py 客户硬规则筛选和优先级 Tool
+│  └─ customer_decision.py     单客户决策证据 Tool
+└─ __main__.py          命令行入口
 
-scripts/
-├─ smoke_model.py                 使用本地配置验证真实模型连接
-├─ smoke_agent_loop.py            使用 FakeChatModel 离线验证工具调用闭环
-└─ generate_demo_mock_data.py     生成并重算校验前三幕合成 CSV 场景
-
-data/scenarios/demo_acts_1_3_v1/
-├─ source/                   业务运行可读取的 12 份合成原始数据 CSV
-└─ test_expectations/        仅供测试断言使用的期望结果 CSV
-
-tests/
-├─ test_demo_mock_data.py    校验场景业务不变量与逐字节可重复生成
-├─ test_manage_service.py    校验正式业务计算、证据、规则和数据隔离
-└─ test_manage_workflow.py   校验 Agent Tool 闭环与确定性降级
-
-web/
-├─ src/App.tsx               单对话工作区、三幕进度与输入交互
-├─ src/chatStream.ts         SSE/NDJSON 流解析与内置演示流适配
-├─ src/styles.css            响应式视觉系统与克制动效
-└─ vite.config.ts            Vite 开发与 `/api` 代理配置
+web/src/
+├─ App.tsx          对话工作区和动态执行轨迹
+├─ chatStream.ts    真实 SSE 客户端
+├─ types.ts         与后端事件对应的通用前端状态
+└─ styles.css       响应式视觉样式
 ```
 
 ## 依赖方向
 
 ```text
-Agent Core
-      ↓ ChatModel
-模型调用层
-      ↓ OpenAI Python SDK
-OpenAI-compatible 接口
+React 前端
+    ↓ SSE
+FastAPI API
+    ↓ 创建一次运行
+ManageAgent → prompts
+    ↓
+AgentLoop → ChatModel
+    ↓ 自主 Tool calls
+自动发现的 tools → ManageService → BusinessDataRepository → source CSV
 ```
 
-前三幕业务依赖方向为：
+`AgentLoop` 只认识模型、消息和 `Tool` 协议。`ManageAgent` 每次创建新的 `ManageAgentRun`、`AgentTrace` 和 `ToolContext`，不检查某个业务工具是否“必经”。模型通过 Tool 描述自行选择调用；Tool 结果作为 tool message 回到同一 Trace 的后续 Turn。
+
+Tool 模块是当前业务扩展点。`src/manage/tools/__init__.py` 按稳定名称扫描所有非私有模块，并调用其 `create_tool(context)` 工厂。新增 Tool 不需要修改 Agent 或前端。Tool 可以调用本地确定性函数、外部服务或独立模型，只要遵守统一 Tool 协议。
+
+确定性业务服务目前消费原前三幕合成数据，但它位于 Tool 内部，不定义 Agent 的流程。后续故事可以增加数据、Tool 或服务能力；前端只消费通用 `tool` 事件，因而不会依赖幕次数量或工具名称。
+
+## 运行与事件流
+
+一次 HTTP 请求对应一个 Trace：
 
 ```text
-Agent 用例 → 业务 Tool → 确定性 ManageService → 场景 Repository → source CSV
-     ↓
-Agent Core → ChatModel → OpenAI-compatible 接口或 Fake 模型
+trace_start
+  → turn_start
+  → 模型流式输出 / tool_start → tool_end
+  → turn_end
+  → 后续 turn（数量由模型行为决定）
+  → trace_end
 ```
 
-Agent Core 不感知具体业务。业务 Tool 只调用 `ManageService`，主 Agent 不直接读取 CSV。`ManageService` 的汇总由客户明细派生，规则参数来自场景规则快照。生成器创建 source 与测试期望后，也通过正式 `ManageService` 重算并校验结果；正常业务路径不读取 `test_expectations/`。
-
-`workflow.py` 收集 Tool 返回的正式产物并检查经营上下文、机会分析和客群筛选是否齐全，同时校验最终文本是否保持推荐机会、漏斗数字和合成数据标识。模型调用失败、漏掉必经 Tool、关键文本不一致或没有最终文本时，用例直接复用同一确定性服务形成产物和模板说明，并在结果中标记降级原因。
-
-前端与后端通过独立的流适配层解耦。前端期望 `POST /api/chat/stream` 接收 `message` 与 `scenario_id`，并以 SSE 或逐行 JSON 返回 `act`、`delta`、`done`、`error` 事件。未配置 `VITE_API_BASE_URL` 时，适配层使用与当前场景事实一致的内置演示流；该演示流只用于页面开发，不是业务事实计算入口。
+API 将内部事件投影为 `trace`、`turn`、`tool`、`delta`、`done` 和 `error`。`tool` 事件携带所属 Turn、输入参数和解析后的结果，`delta` 携带所属 Turn。前端据此按 Turn 分离中间说明与最终回答，并依据 Tool 调用标识动态更新可展开的调用结果，不预创建固定幕次。取消请求会停止消费本次事件流，不影响其他请求。
