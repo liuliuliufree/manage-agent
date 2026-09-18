@@ -3,6 +3,14 @@
 ## 关键目录与职责
 
 ```text
+src/domain/
+├─ goal.py          版本化经营目标、缺失信息与假设
+├─ evidence.py      带来源、版本与有效期的最小证据
+├─ opportunity.py   关联 Goal/Evidence 的经营机会判断
+├─ capability.py    稳定 Capability 请求、结果与状态契约
+├─ plan.py          Capability Plan 与轻量步骤依赖校验
+└─ refs.py          Goal/Plan 的版本化引用
+
 src/agent/
 ├─ event.py         Trace、Turn、Tool 生命周期事件
 ├─ tool.py          Tool 定义和 JSON Schema 参数校验
@@ -14,43 +22,40 @@ src/model/
 ├─ settings.py      OpenAI-compatible 配置
 ├─ openai_chat.py   真实流式模型实现
 └─ fake.py          确定性测试模型
-
-src/manage/         待构建
-
-web/src/
-├─ App.tsx          居中输入页、左右对话流、过程与 Markdown 回答
-├─ chatStream.ts    真实 SSE 客户端
-├─ types.ts         与后端事件对应的通用前端状态
-└─ styles.css       响应式视觉样式
 ```
 
 ## 依赖方向
 
 ```text
-React 前端
-    ↓ SSE
-FastAPI API
-    ↓ 创建一次运行
-ManageAgent
-    ↓
-AgentLoop → ChatModel
-    ↓ 自主 Tool calls
-自动发现的 tools ......
+未来 Application（M2）
+       ├──→ Domain
+       └──→ Agent Runtime ──→ Model
 ```
 
-`AgentLoop` 只认识模型、消息和 `Tool` 协议。`ManageAgent` 每次创建新的 `ManageAgentRun`、`AgentTrace` 和 `ToolContext`，不检查某个业务工具是否“必经”。模型通过 Tool 描述自行选择调用；Tool 结果作为 tool message 回到同一 Trace 的后续 Turn。
+`domain` 不导入 `agent` 或 `model`；`agent` 与 `model` 也不导入 `domain`。未来 Application 是唯一可同时组合领域契约和通用 Runtime 的位置。
 
-## 运行与事件流
-
-一次 HTTP 请求对应一个 Trace：
+## 领域数据流
 
 ```text
-trace_start
-  → turn_start
-  → 模型流式输出 / tool_start → tool_end
-  → turn_end
-  → 后续 turn（数量由模型行为决定）
-  → trace_end
+原始经营请求 + 可信上下文
+              ↓
+      Goal（版本化）
+              ↓
+      Plan（选择 Capability）
+              ↓
+CapabilityRequest / CapabilityResult
+              ↓
+Opportunity ← Evidence
 ```
 
-API 将内部事件投影为 `trace`、`turn`、`tool`、`delta`、`done` 和 `error`。`tool` 事件携带所属 Turn、输入参数和解析后的结果，`delta` 携带所属 Turn。前端在内部按 Turn 归属组织内容，但页面不显示该技术概念；公开说明保持可见，Tool 详情默认折叠，正常结束时将最后一段文本确认为 Markdown 正文且不重复展示。取消请求会停止消费本次事件流，不影响其他请求。
+M1 仅描述上述对象及其机器可校验不变量；没有 Goal Parser、Planner、Capability Runtime、业务 Tool、数据持久化或 HTTP API。CapabilityResult 的 `execution_meta.trace_id` 是字符串引用，避免 Domain 依赖 Agent Trace 类型；`rule_result_refs` 统一保存 `RULE_RESULT` Evidence ID，并由后续 Application 在可取得 Evidence 集合时解析类型。
+
+## M1 已强制的契约
+
+- Goal、Plan 版本不低于 1，`revise()` 创建新版本而不修改旧实例。
+- Evidence 必须带非空 Source；EvidenceType 不包含 Agent judgement。
+- 正式 Opportunity 必须指向具体 Goal version 且至少保留一条 EvidenceLink；优先级需要解释因素。
+- Capability 状态语义区分无结果、业务规则阻断和运行失败；BLOCKED 要求规则结果引用。
+- PlanStep 只选择 Capability，可重复、可省略；依赖必须存在且不能成环。
+
+产品、客户、规则与 Trace 的事实来源，以及 Opportunity/Capability 语义是否被错误设计为固定 Demo 工作流，仍由后续实现与架构评审保证。

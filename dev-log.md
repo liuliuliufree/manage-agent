@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- 2026-09-17 完成 M1 Domain Contract：新增独立 `src/domain/`，定义版本化 Goal、可追溯 Evidence、Evidence 驱动 Opportunity、统一 Capability Request/Result 状态以及轻量 Plan 依赖校验；未向通用 Agent/Model Runtime 加入业务语义，也未实现 Parser、Planner、Capability 执行或业务数据接入。
+- 新增标准库 `unittest` 领域契约测试，覆盖 Goal 版本、证据类型和来源、Opportunity 证据角色、Capability 状态不变量，以及部分/重复/并行 Plan 和非法依赖；验证命令及结果见当前实现状态的测试入口。
+
 - 2026-09-16 扩大桌面对话内容区：主栏最大宽度由 860px 调整为 1180px，智能体过程卡片与最终 Markdown 回答使用完整主栏宽度；移动端布局和输入框宽度保持不变。
 - 2026-09-16 按已确认的对话页面设计重构前端：初始页以“智慧经营智能体”和居中输入框为主体，进入对话后用户消息靠右、智能体内容靠左；移除顶部 Logo、连接说明及所有面向用户的 Turn 文案。中间模型公开说明保持可见，每次 Tool 调用默认折叠且可在执行中查看输入，最终文本使用 Markdown/GFM 渲染；同时补充中文输入法防误发、非正常流结束识别、停止时工具状态收敛和用户上滚后的“回到最新”行为。
 - 新增 `react-markdown` 与 `remark-gfm` 作为轻量正文渲染依赖。前端 TypeScript 检查及 Vite 生产构建通过；使用真实模型流在浏览器验证三段公开说明、五次 Tool 调用、Markdown 标题/表格/列表、折叠详情和运行结束，并检查桌面与 390×844 移动视口。构建输出写入临时目录，未覆盖已有 `web/dist`。
