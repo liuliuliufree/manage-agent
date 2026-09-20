@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+- 2026-09-20 新增 `scripts/smoke_bussiness_agent.py`，使用配置的真实 LLM 服务验证 BusinessAgent 完整链路，覆盖仅看机会、已有 Opportunity 直接圈客和模糊指标澄清三个场景，并检查澄清时不进入 Planner；脚本仅使用虚构标识和测试输入，并打印每次模型 JSON 与最终结构化响应。在线验证先后暴露“刚才的机会”误澄清，以及模型为泛化“测试业绩”创造指标代码并跳过澄清的问题；前者通过 Prompt 规则修正，后者增加确定性澄清门禁，完整离线测试增至 40 项。脚本已调整为逐调用打印进度，并限定 30 秒超时、零重试；修复后的最近一次在线复验在第一个模型调用处明确返回 `Model request timed out`，未进入后续业务链路。
+- 2026-09-20 完成 M2-Lite Step 5 和 Step 6：新增轻量 `BusinessAgent`，串联 Goal Parser、澄清分支、Planner 与 Plan Validation，对外提供 `PLAN_READY`、`CLARIFICATION_REQUIRED`、`FAILED` 三种结果；未新增 Agent Loop、Workflow Engine、状态机或 Capability 执行。
+- 新增 8 个核心 Demo 行为场景，覆盖仅看机会、已有 Opportunity 直接圈客、已有 Customer 直接生成策略、任务追踪、复杂绩效目标、模糊指标澄清、非 Demo 产品和非开门红场景；另验证规划失败收敛为 `FAILED`。完整离线测试共 38 项通过，并完成 `src`、`tests` 及冒烟脚本字节码编译；本轮未重新执行真实模型在线验证。
+- 2026-09-20 完成 M2-Lite Step 4：新增独立 `validate_plan(plan, capability_catalog)`，仅确定性检查 Catalog 外能力、重复 step_id、未知依赖和依赖环，并由 Planner 在返回 Plan 前调用；未引入错误层级、PlanDraft、上下文依赖求解或语义修复。
+- 新增 4 项独立 Plan Validation 测试，分别覆盖上述四类非法 Plan；连同既有测试共 29 项通过。
+- 2026-09-20 完成 M2-Lite Step 3：新增直接依赖 `ChatModel` 的 `Planner`，以 Goal、简单 Existing Context 和 Capability Catalog 生成 M1 `Plan/PlanStep`。Prompt 明确要求最少合理能力、无固定顺序、复用已有 Context 且不得创造 Catalog 外能力；Plan 身份、版本、GoalRef 和状态由 Application 构造，非法 JSON 最多进行一次纯格式修复。
+- 新增 6 项 Planner 单元测试，覆盖只看机会、已有 Opportunity 直接圈客、已有 Customer 直接生成策略、任务追踪、Catalog 外能力拒绝和 JSON 格式修复；新增 `scripts/smoke_planner.py`，使用虚构 Goal 与引用调用真实模型，四个动态选择场景均只选择所需单一能力。完整离线测试共 25 项通过；独立轻量 `validate_plan()` 留待 Step 4。
+- 2026-09-20 完成 M2-Lite Step 2：新增基于 `ChatModel` 的 `GoalParser`、最小 `RuntimeContext` 和 `GoalParseResult`，支持自然语言构造新 Goal、已有 Goal 的基础 SET 修改以及模糊指标澄清。业务语义来自模型；Goal ID、版本、原始请求和可信 actor/channel 由 Application 管理。
+- Goal Parser 不向模型提供 RuntimeContext，并确定性忽略模型生成的活动日期及未在用户原文出现的产品/需求提及；新增示例 NBEV 目标、可信上下文覆盖、模糊“业绩”澄清、50 岁不推导养老需求和 Goal 修改测试。连同既有测试共 19 项通过，并完成 `src` 与 `tests` 字节码编译。
+- 新增 `scripts/smoke_goal_parser.py`，使用明确虚构的数据调用配置的真实模型，打印用户问题、模型 JSON 与 Python 处理结果，并对绩效目标、模糊指标澄清和年龄不得推导需求进行断言。在线验证发现模型可能返回非标准 `target_type`，Parser 已调整为优先按 JSON 值类型识别数值；最终三个场景均通过。
+- 2026-09-20 完成 M2-Lite Step 1：新增轻量 `src/application/` 与 `CAPABILITY_CATALOG`，声明定向洞察、自动圈客、策略生成、校验分发、追踪迭代五类独立经营能力；Catalog 不包含固定顺序、步骤编号或前后继关系，且未提前实现 Goal Parser、Planner、Capability 执行、版本解析或可用性注册。
+- 新增 Capability Catalog 自动测试，锁定五项能力 ID 与描述并检查不存在固定 Workflow 元数据；连同 M1 领域契约共执行 15 项测试通过，并完成 `src` 与 `tests` 字节码编译。
 - 2026-09-17 完成 M1 Domain Contract：新增独立 `src/domain/`，定义版本化 Goal、可追溯 Evidence、Evidence 驱动 Opportunity、统一 Capability Request/Result 状态以及轻量 Plan 依赖校验；未向通用 Agent/Model Runtime 加入业务语义，也未实现 Parser、Planner、Capability 执行或业务数据接入。
 - 新增标准库 `unittest` 领域契约测试，覆盖 Goal 版本、证据类型和来源、Opportunity 证据角色、Capability 状态不变量，以及部分/重复/并行 Plan 和非法依赖；验证命令及结果见当前实现状态的测试入口。
 

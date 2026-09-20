@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>M1 领域协议契约关系图</title>
+  <style>
+    :root {
+      --ink: #18263d;
+      --muted: #62708a;
+      --line: #d9e2ef;
+      --canvas: #f4f7fb;
+      --surface: #ffffff;
+      --navy: #16375b;
+      --blue: #1d6fd1;
+      --blue-soft: #eaf3ff;
+      --teal: #047d79;
+      --teal-soft: #e5f7f5;
+      --violet: #7554b8;
+      --violet-soft: #f1ecff;
+      --amber: #a56700;
+      --amber-soft: #fff5dc;
+      --red: #b94045;
+      --red-soft: #fff0f1;
+      --shadow: 0 14px 35px rgba(24, 49, 84, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 6% 0%, rgba(29, 111, 209, .13), transparent 26rem),
+        radial-gradient(circle at 98% 16%, rgba(4, 125, 121, .11), transparent 23rem),
+        var(--canvas);
+      font-family: "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+      line-height: 1.55;
+    }
+
+    .page { width: min(1440px, calc(100% - 48px)); margin: 0 auto; padding: 42px 0 72px; }
+    .eyebrow { margin: 0 0 10px; color: var(--blue); font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 900px; margin-bottom: 12px; font-size: clamp(30px, 4vw, 48px); line-height: 1.15; letter-spacing: -.04em; }
+    h2 { margin-bottom: 8px; font-size: 24px; line-height: 1.25; }
+    h3 { margin-bottom: 6px; font-size: 17px; }
+    .lede { max-width: 900px; margin-bottom: 28px; color: var(--muted); font-size: 16px; }
+    .panel { background: rgba(255,255,255,.92); border: 1px solid rgba(217,226,239,.9); border-radius: 20px; box-shadow: var(--shadow); }
+    .section { margin-top: 32px; }
+    .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
+    .section-heading p { margin: 0; color: var(--muted); }
+    .chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .chip.blue { color: var(--blue); background: var(--blue-soft); }
+    .chip.teal { color: var(--teal); background: var(--teal-soft); }
+    .chip.violet { color: var(--violet); background: var(--violet-soft); }
+    .chip.amber { color: var(--amber); background: var(--amber-soft); }
+    .chip.red { color: var(--red); background: var(--red-soft); }
+    .chip.gray { color: #526178; background: #edf1f7; }
+
+    .boundary { padding: 22px; overflow: hidden; }
+    .layers { display: grid; grid-template-columns: 1.3fr 1.2fr 1fr; gap: 12px; position: relative; }
+    .layer { position: relative; min-height: 128px; padding: 19px; border-radius: 15px; border: 1px solid var(--line); background: var(--surface); }
+    .layer.domain { border-top: 4px solid var(--violet); }
+    .layer.agent { border-top: 4px solid var(--blue); }
+    .layer.model { border-top: 4px solid var(--teal); }
+    .layer p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
+    .layer .arrow-label { display: none; }
+    .invariant-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+
+    .flow { position: relative; padding: 30px 24px 26px; overflow: hidden; }
+    .flow-track { display: grid; grid-template-columns: 1.1fr 1.1fr 1.25fr 1.12fr 1.15fr; gap: 22px; align-items: stretch; position: relative; }
+    .flow-track::before { content: ""; position: absolute; top: 39px; left: 10%; right: 10%; height: 2px; background: linear-gradient(90deg, var(--violet), var(--blue), var(--teal)); z-index: 0; }
+    .flow-node { position: relative; z-index: 1; min-height: 150px; padding: 19px 15px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); }
+    .flow-node .index { width: 32px; height: 32px; display: grid; place-items: center; margin-bottom: 10px; border-radius: 50%; color: #fff; background: var(--navy); font-size: 13px; font-weight: 700; }
+    .flow-node:nth-child(1) .index, .flow-node:nth-child(2) .index { background: var(--violet); }
+    .flow-node:nth-child(3) .index { background: var(--blue); }
+    .flow-node:nth-child(4) .index, .flow-node:nth-child(5) .index { background: var(--teal); }
+    .flow-node p { margin: 0; color: var(--muted); font-size: 13px; }
+    .link-matrix { margin-top: 20px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); }
+    .link-matrix-title { margin: 0; padding: 10px 14px; color: var(--navy); background: #f7f9fc; font-size: 14px; font-weight: 700; }
+    .link-row { display: grid; grid-template-columns: 150px 36px 150px minmax(0, 1fr); gap: 10px; align-items: center; padding: 11px 14px; border-top: 1px solid #edf1f6; font-size: 13px; }
+    .link-from, .link-to { font-weight: 700; color: var(--navy); }
+    .link-arrow { color: var(--blue); text-align: center; font-weight: 700; }
+    .link-detail { color: var(--muted); }
+    .link-detail code { white-space: nowrap; }
+    .flow-note { margin: 18px 0 0; padding: 13px 16px; border-left: 3px solid var(--amber); border-radius: 0 10px 10px 0; color: #5e4b27; background: var(--amber-soft); font-size: 14px; }
+
+    .contracts { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+    .contract { scroll-margin-top: 18px; padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 8px 24px rgba(24,49,84,.05); }
+    .contract.goal, .contract.opportunity, .contract.evidence { grid-column: span 4; }
+    .contract.capability, .contract.plan { grid-column: span 6; }
+    .contract-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
+    .contract h3 { margin: 0; font-size: 20px; }
+    .contract .purpose { min-height: 46px; margin-bottom: 14px; color: var(--muted); font-size: 14px; }
+    .fields { display: grid; gap: 8px; margin: 0; }
+    .field { display: grid; grid-template-columns: 135px 1fr; gap: 10px; padding-top: 8px; border-top: 1px solid #edf1f6; }
+    .field:first-child { border-top: 0; padding-top: 0; }
+    dt { color: var(--navy); font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; font-weight: 700; }
+    dd { margin: 0; color: #536178; font-size: 13px; }
+    .contract-footer { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 15px; }
+
+    .relationship { padding: 22px; }
+    .relationship-map { display: grid; grid-template-columns: 1fr 70px 1.18fr 70px 1fr; align-items: center; gap: 0; }
+    .map-box { min-height: 145px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+    .map-box h3 { margin-bottom: 6px; }
+    .map-box p { margin: 0; color: var(--muted); font-size: 13px; }
+    .map-box strong { color: var(--ink); }
+    .map-arrow { position: relative; height: 2px; background: var(--blue); }
+    .map-arrow::after { content: ""; position: absolute; right: -1px; top: -4px; width: 9px; height: 9px; border-top: 2px solid var(--blue); border-right: 2px solid var(--blue); transform: rotate(45deg); }
+    .map-arrow span { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .tool-contrast { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+    .contrast { padding: 16px; border-radius: 14px; }
+    .contrast.cap { background: var(--violet-soft); }
+    .contrast.tool { background: var(--blue-soft); }
+    .contrast h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .contrast p { margin: 0; color: #4f5e77; font-size: 14px; }
+
+    .status-panel { padding: 22px; }
+    .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .status { padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
+    .status code { display: block; margin-bottom: 4px; color: var(--navy); font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px; font-weight: 700; }
+    .status p { margin: 0; color: var(--muted); font-size: 13px; }
+    .status.warn { border-left: 4px solid var(--amber); }
+    .status.stop { border-left: 4px solid var(--red); }
+    .status.ok { border-left: 4px solid var(--teal); }
+    .status.info { border-left: 4px solid var(--blue); }
+
+    .guardrails { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .guard { padding: 19px; border-radius: 16px; }
+    .guard.allowed { border: 1px solid #bce8e4; background: var(--teal-soft); }
+    .guard.forbidden { border: 1px solid #f0c9cc; background: var(--red-soft); }
+    .guard ul { margin: 10px 0 0; padding-left: 20px; }
+    .guard li { margin: 5px 0; color: #4c5d70; font-size: 14px; }
+    .footnote { margin: 26px 0 0; color: var(--muted); font-size: 12px; }
+    code { padding: 1px 4px; border-radius: 4px; background: #eef2f7; color: #253e61; font-family: Consolas, "Cascadia Mono", monospace; font-size: .92em; }
+
+    @media (max-width: 980px) {
+      .layers, .flow-track { grid-template-columns: 1fr; }
+      .flow-track::before { top: 0; bottom: 0; left: 31px; right: auto; width: 2px; height: auto; }
+      .flow-node { min-height: 0; padding-left: 58px; }
+      .flow-node .index { position: absolute; left: 15px; top: 18px; }
+      .link-row { grid-template-columns: 1fr 26px 1fr; }
+      .link-detail { grid-column: 1 / -1; padding-top: 2px; }
+      .contract.goal, .contract.opportunity, .contract.evidence, .contract.capability, .contract.plan { grid-column: span 12; }
+      .relationship-map { grid-template-columns: 1fr; gap: 12px; }
+      .map-arrow { width: 2px; height: 28px; justify-self: center; }
+      .map-arrow::after { right: -4px; bottom: -1px; top: auto; transform: rotate(135deg); }
+      .map-arrow span { top: 4px; left: 18px; transform: none; }
+    }
+
+    @media (max-width: 640px) {
+      .page { width: min(100% - 28px, 1440px); padding-top: 28px; }
+      .section-heading { display: block; }
+      .section-heading p { margin-top: 5px; }
+      .boundary, .flow, .relationship, .status-panel { padding: 16px; }
+      .field { grid-template-columns: 1fr; gap: 2px; }
+      .tool-contrast, .guardrails, .status-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <p class="eyebrow">智慧经营智能体 · M1 Domain Contract</p>
+      <h1>M1 领域协议契约关系图</h1>
+      <p class="lede">M1 固定的是智慧经营的“业务语言”，而非固定流程：Goal 定义要达成什么，Plan 动态组合 Capability，Capability 通过 Tool 获得数据、规则、模型和知识，并以 Evidence 与明确状态返回可审计结果。</p>
+    </header>
+
+    <section class="section" aria-labelledby="boundary-title">
+      <div class="section-heading">
+        <div><h2 id="boundary-title">01 · 依赖边界</h2><p>Application 是未来唯一的组合点；Domain、Agent Runtime 与 Model 保持独立。</p></div>
+        <span class="chip gray">M1-T01</span>
+      </div>
+      <div class="panel boundary">
+        <div class="layers">
+          <article class="layer domain">
+            <span class="chip violet">业务语义</span>
+            <h3>Domain</h3>
+            <p>Goal、Plan、Opportunity、Evidence、Capability 契约。<br>不导入 LLM、Tool Calling、Prompt、Trace。</p>
+          </article>
+          <article class="layer agent">
+            <span class="chip blue">通用运行时</span>
+            <h3>Agent Runtime</h3>
+            <p>Agent Loop、Tool 调用、Trace、Turn、生命周期。<br>不感知 NBEV、客户、产品或机会。</p>
+          </article>
+          <article class="layer model">
+            <span class="chip teal">模型通信</span>
+            <h3>Model</h3>
+            <p>LLM 配置与流式响应。<br>不知道 Agent 与业务领域。</p>
+          </article>
+        </div>
+        <div class="invariant-row" aria-label="架构不变量">
+          <span class="chip violet">Application → Domain</span>
+          <span class="chip blue">Application → Agent → Model</span>
+          <span class="chip gray">Domain ↮ Agent / Model</span>
+          <span class="chip gray">业务 ID 与 Trace ID 分离</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="flow-title">
+      <div class="section-heading">
+        <div><h2 id="flow-title">02 · M1 对象关系</h2><p>箭头描述稳定引用与输入输出，不表示五个 Capability 的固定执行顺序。</p></div>
+        <span class="chip gray">核心关系</span>
+      </div>
+      <div class="panel flow">
+        <div class="flow-track">
+          <article class="flow-node"><div class="index">01</div><h3>原始经营请求</h3><p>自然语言保留为 <code>original_request</code>；M1 不负责解析它。</p></article>
+          <article class="flow-node"><div class="index">02</div><h3>Goal</h3><p>版本化的“要达成什么”。信息不全时显式记录缺失与假设。</p></article>
+          <article class="flow-node"><div class="index">03</div><h3>Plan</h3><p>围绕 Goal 的轻量步骤依赖图；每步只选择一个 Capability。</p></article>
+          <article class="flow-node"><div class="index">04</div><h3>Capability Request / Result</h3><p>稳定业务请求与结果信封，承接上下文、输出、状态、规则与审计元数据。</p></article>
+          <article class="flow-node"><div class="index">05</div><h3>Opportunity + Evidence</h3><p>Opportunity 指向 Goal 版本，并通过 EvidenceLink 保留支持、限制和冲突依据。</p></article>
+        </div>
+        <div class="link-matrix" aria-label="M1 对象关系的字段连接说明">
+          <p class="link-matrix-title">这五个环节通过哪些字段连接？</p>
+          <div class="link-row">
+            <div class="link-from">原始经营请求</div><div class="link-arrow">→</div><div class="link-to">Goal</div>
+            <div class="link-detail">原文由 <code>Goal.original_request</code> 保留；这是内容承载，不是跨对象 ID 引用。</div>
+          </div>
+          <div class="link-row">
+            <div class="link-from">Goal</div><div class="link-arrow">→</div><div class="link-to">Plan</div>
+            <div class="link-detail"><code>Plan.goal_ref.goal_id</code> = <code>Goal.goal_id</code>，且 <code>Plan.goal_ref.version</code> = <code>Goal.version</code>；Plan 必须服务于一个明确 Goal 版本。</div>
+          </div>
+          <div class="link-row">
+            <div class="link-from">PlanStep</div><div class="link-arrow">↔</div><div class="link-to">CapabilityRequest</div>
+            <div class="link-detail"><code>PlanStep.capability_id</code> 与 <code>CapabilityRequest.capability_id</code> 选择同一能力；请求以 <code>plan_ref(plan_id, version)</code> 回指 Plan，并另带 <code>goal_ref</code>。</div>
+          </div>
+          <div class="link-row">
+            <div class="link-from">CapabilityRequest</div><div class="link-arrow">→</div><div class="link-to">CapabilityResult</div>
+            <div class="link-detail"><code>CapabilityResult.request_id</code> = <code>CapabilityRequest.request_id</code>，<code>capability_id</code> 也保持一致；这是一次调用的主关联键。</div>
+          </div>
+          <div class="link-row">
+            <div class="link-from">Result / Opportunity</div><div class="link-arrow">→</div><div class="link-to">Evidence</div>
+            <div class="link-detail">结果通过 <code>evidence_refs</code>、<code>outputs[].evidence_refs</code> 与 <code>rule_result_refs</code> 引用 <code>Evidence.evidence_id</code>；Opportunity 通过 <code>evidence_links[].evidence_id</code> 引用，并以 <code>goal_link</code> 回指 Goal。</div>
+          </div>
+        </div>
+        <p class="flow-note"><strong>不变量：</strong>Capability 可跳过、重复和重排；Plan 只校验依赖存在且无环，不演变成第二套 Workflow Engine。</p>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="contracts-title">
+      <div class="section-heading">
+        <div><h2 id="contracts-title">03 · 协议内部细节</h2><p>字段按已实现的 M1 dataclass 契约归纳；斜体说明为字段的业务语义或校验规则。</p></div>
+        <span class="chip gray">M1-T02 ～ T07</span>
+      </div>
+      <div class="contracts">
+        <article class="contract goal" id="goal">
+          <div class="contract-head"><h3>Goal</h3><span class="chip violet">版本化意图</span></div>
+          <p class="purpose">描述代理人要达成的经营目标；回答 What，不携带 Tool、Workflow 或经营结论。</p>
+          <dl class="fields">
+            <div class="field"><dt>identity</dt><dd><code>goal_id</code>、<code>version ≥ 1</code>；<code>revise()</code> 新建版本，旧实例不变。</dd></div>
+            <div class="field"><dt>request</dt><dd><code>original_request</code> 不可为空，始终保留原始自然语言；<code>goal_type</code> 不可为空。</dd></div>
+            <div class="field"><dt>objective</dt><dd><code>metric</code>、<code>target(value / unit / comparator)</code>、<code>time_horizon</code>。</dd></div>
+            <div class="field"><dt>business scope</dt><dd><code>audience_scope</code>、<code>product_or_need_context</code>、<code>channel_and_actor</code>。</dd></div>
+            <div class="field"><dt>guarded context</dt><dd><code>constraints</code>、<code>success_criteria</code>、<code>missing_information</code>、<code>assumptions</code>。</dd></div>
+          </dl>
+          <div class="contract-footer"><span class="chip amber">未知不能脑补</span><span class="chip violet">GoalRef(goal_id, version)</span></div>
+        </article>
+
+        <article class="contract evidence" id="evidence">
+          <div class="contract-head"><h3>Evidence</h3><span class="chip teal">可追溯依据</span></div>
+          <p class="purpose">承载可以被引用和审计的事实、规则、模型信号、知识或经验；不把 Agent judgement 伪装成事实。</p>
+          <dl class="fields">
+            <div class="field"><dt>identity &amp; summary</dt><dd><code>evidence_id</code> 与非空 <code>summary</code>。</dd></div>
+            <div class="field"><dt>evidence_type</dt><dd><code>customer_fact</code>、<code>product_fact</code>、<code>business_fact</code>、<code>rule_result</code>、<code>model_signal</code>、<code>experience</code>。</dd></div>
+            <div class="field"><dt>source</dt><dd><code>source_id</code>、<code>source_type</code> 必填；可含 <code>version</code>、<code>retrieved_at</code>。</dd></div>
+            <div class="field"><dt>validity &amp; quality</dt><dd><code>effective_period</code>（起止不可倒置）、<code>quality(confidence / completeness / note)</code>。</dd></div>
+            <div class="field"><dt>content</dt><dd><code>payload</code> 保存结构化内容；引用时使用 <code>evidence_id</code>。</dd></div>
+          </dl>
+          <div class="contract-footer"><span class="chip teal">来源必填</span><span class="chip red">模型信号 ≠ 客户事实</span></div>
+        </article>
+
+        <article class="contract opportunity" id="opportunity">
+          <div class="contract-head"><h3>Opportunity</h3><span class="chip blue">证据驱动机会</span></div>
+          <p class="purpose">描述与某一 Goal 版本相关的可经营问题与条件，不等同于客户标签、产品答案或可执行名单。</p>
+          <dl class="fields">
+            <div class="field"><dt>identity &amp; goal</dt><dd><code>opportunity_id</code>；<code>goal_link(goal_id, version)</code> 必须引用具体 Goal 版本。</dd></div>
+            <div class="field"><dt>problem</dt><dd><code>opportunity_type</code> 与非空 <code>problem_statement</code>。</dd></div>
+            <div class="field"><dt>evidence_links</dt><dd>至少一条；角色为 <code>supports</code>、<code>limits</code> 或 <code>contradicts</code>，不丢弃反证。</dd></div>
+            <div class="field"><dt>conditions</dt><dd><code>goal_contributions</code>、<code>conditions</code>、<code>candidate_logic</code>；候选逻辑不是查询或权限裁决。</dd></div>
+            <div class="field"><dt>priority &amp; next</dt><dd><code>priority(level / score / factors)</code> 的解释因素必填；另含 <code>validity</code> 与 <code>next_action_hint</code>。</dd></div>
+          </dl>
+          <div class="contract-footer"><span class="chip blue">必须有 EvidenceLink</span><span class="chip gray">跨场景可复用</span></div>
+        </article>
+
+        <article class="contract capability" id="capability">
+          <div class="contract-head"><h3>Capability Request / Result</h3><span class="chip blue">统一业务信封</span></div>
+          <p class="purpose">将“要解决的经营问题”封装为稳定的业务请求和结果；它不执行实现，也不依赖 Tool、Trace、AgentLoop 或 ChatModel。</p>
+          <dl class="fields">
+            <div class="field"><dt>definition</dt><dd><code>CapabilityDefinition(capability_id, name, description, version)</code>；描述可替换的业务能力。</dd></div>
+            <div class="field"><dt>request identity</dt><dd><code>request_id</code>、<code>capability_id</code>、强制 <code>goal_ref</code>；可选 <code>plan_ref</code>。</dd></div>
+            <div class="field"><dt>request context</dt><dd><code>ActorContext</code> 的 <code>trusted_source</code> 必填；可带对象范围、证据引用、属性和约束。</dd></div>
+            <div class="field"><dt>outputs</dt><dd><code>CapabilityOutput</code> 包含 <code>output_id</code>、类型、摘要、载荷与 Evidence 引用；结果可带质量。</dd></div>
+            <div class="field"><dt>result semantics</dt><dd><code>status</code>、<code>rule_result_refs</code>、<code>missing_information</code>、<code>errors</code>、<code>limitations</code>。</dd></div>
+            <div class="field"><dt>audit bridge</dt><dd><code>execution_meta</code> 保留 <code>trace_id</code> 字符串引用、实现引用和起止时间，Domain 不导入 Agent Trace。</dd></div>
+          </dl>
+          <div class="contract-footer"><span class="chip blue">GoalRef / PlanRef</span><span class="chip teal">Evidence / Rule Result refs</span><span class="chip gray">实现可替换</span></div>
+        </article>
+
+        <article class="contract plan" id="plan">
+          <div class="contract-head"><h3>Plan / PlanStep</h3><span class="chip violet">轻量依赖计划</span></div>
+          <p class="purpose">围绕 Goal 的当前能力组合与依赖关系；不是固定五步，也不是含分支、循环、重试策略的 Workflow DSL。</p>
+          <dl class="fields">
+            <div class="field"><dt>plan identity</dt><dd><code>plan_id</code>、<code>version ≥ 1</code>、<code>goal_ref</code>、<code>status</code>、<code>supersedes_version</code>。</dd></div>
+            <div class="field"><dt>step selection</dt><dd><code>PlanStep(step_id, capability_id)</code>：一个步骤选择一个 Capability；步骤可省略、重复或重排。</dd></div>
+            <div class="field"><dt>dependency</dt><dd><code>depends_on</code> 仅引用已有 <code>step_id</code>；不允许自身依赖、重复 step ID 或循环。</dd></div>
+            <div class="field"><dt>context &amp; control</dt><dd><code>context_refs</code> 传递已知上下文；<code>control_points</code> 仅定义 <code>rule_check</code> 与 <code>user_confirmation</code>。</dd></div>
+            <div class="field"><dt>life cycle</dt><dd>Plan：<code>active / completed / blocked / superseded / cancelled</code>；Step：<code>planned / ready / running / completed / skipped / blocked / cancelled</code>。</dd></div>
+          </dl>
+          <div class="contract-footer"><span class="chip violet">DAG 校验</span><span class="chip amber">可局部 Replan</span><span class="chip gray">不引入工作流引擎</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="relation-title">
+      <div class="section-heading">
+        <div><h2 id="relation-title">04 · Capability 与 Tool：两个层次</h2><p>稳定业务语义与具体技术/业务接口必须分开，Application 才负责把它们组合起来。</p></div>
+        <span class="chip gray">M1-T05</span>
+      </div>
+      <div class="panel relationship">
+        <div class="relationship-map">
+          <article class="map-box"><span class="chip violet">为什么做</span><h3>Capability</h3><p><strong>经营问题类型。</strong>例如定向洞察、自动圈客、策略生成、校验分发、追踪迭代；它们可独立、组合、重复或跳过。</p></article>
+          <div class="map-arrow"><span>Application 编排</span></div>
+          <article class="map-box"><span class="chip blue">如何调用</span><h3>CapabilityRequest → Result</h3><p><strong>稳定的外部信封。</strong>承接 Goal / Plan 引用、上下文、结果、状态、证据、规则结果与执行元数据。</p></article>
+          <div class="map-arrow"><span>一个或多个</span></div>
+          <article class="map-box"><span class="chip teal">如何实现</span><h3>Tool</h3><p><strong>受控接口。</strong>提供确定性数据、规则计算、模型推断、知识检索或业务执行；属于 Agent Runtime 侧的技术/业务接口。</p></article>
+        </div>
+        <div class="tool-contrast">
+          <article class="contrast cap"><h3><span class="chip violet">Capability</span> 不等于固定流程节点</h3><p>不能因为出现“策略生成”就要求它一定排在洞察、圈客之后；Plan 只记录当前需要的组合与依赖。</p></article>
+          <article class="contrast tool"><h3><span class="chip blue">Tool</span> 不等于领域语义</h3><p>例如查询客户、读取产品知识、校验渠道归属都可以是 Tool；主 Agent 不需要知道其内部实现。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="status-title">
+      <div class="section-heading">
+        <div><h2 id="status-title">05 · CapabilityResult 状态与错误语义</h2><p>空结果、信息不足、规则阻断与运行失败具有不同处理语义，不能用同一个空列表或异常代替。</p></div>
+        <span class="chip gray">M1-T06</span>
+      </div>
+      <div class="panel status-panel">
+        <div class="status-grid">
+          <article class="status ok"><code>SUCCESS</code><p>成功完成；不得同时携带 <code>errors</code>。</p></article>
+          <article class="status warn"><code>PARTIAL_SUCCESS</code><p>部分完成；必须说明 errors、缺失信息或 limitations。</p></article>
+          <article class="status info"><code>NEED_INFORMATION</code><p>信息不足；必须携带 <code>missing_information</code>。</p></article>
+          <article class="status stop"><code>BLOCKED</code><p>规则明确阻断；必须关联至少一条 <code>rule_result_ref</code>。</p></article>
+          <article class="status info"><code>NO_RESULT</code><p>正常执行但没有发现结果；合法且不等同于失败。</p></article>
+          <article class="status stop"><code>FAILED</code><p>运行失败；必须携带至少一条结构化 <code>CapabilityError</code>。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="guard-title">
+      <div class="section-heading">
+        <div><h2 id="guard-title">06 · M1 契约守住的边界</h2><p>这些规则分别由类型不变量、依赖校验和架构评审共同保证。</p></div>
+        <span class="chip gray">M1-T08</span>
+      </div>
+      <div class="guardrails">
+        <article class="guard allowed"><span class="chip teal">允许</span><h3>可表达的变化</h3><ul><li>Goal 缺期限或指标，但将缺失信息显式保留。</li><li>Goal 与 Plan 均通过新版本表达修改或重规划。</li><li>只执行一个 Capability，或在同一 Plan 中重复能力。</li><li>Plan 形成串行或并行 DAG，只要依赖存在且无环。</li><li>Opportunity 同时保留支持、限制和反对依据。</li></ul></article>
+        <article class="guard forbidden"><span class="chip red">禁止混淆</span><h3>不可越过的边界</h3><ul><li>把模型分数、经验或 Agent 建议说成客户事实。</li><li>没有 EvidenceLink 就形成正式 Opportunity。</li><li>规则 BLOCKED 后以模型高分或建议绕过执行边界。</li><li>把五类 Capability 固化为每次都必经的流程。</li><li>让 Domain 依赖 Tool、Trace、AgentLoop 或 ChatModel。</li></ul></article>
+      </div>
+    </section>
+
+    <p class="footnote">依据：<code>doc/roadmap/M1/M1.md</code>、<code>T01-T02.md</code> 至 <code>T08.md</code>，并与当前 <code>src/domain/</code> 的已实现 M1 契约对齐。M1 仅定义与验证内存态领域对象；不包含 Goal Parser、Planner、业务 Capability 执行、真实业务数据、任务分发或持久化。</p>
+  </main>
+</body>
+</html>

@@ -22,33 +22,56 @@ src/model/
 ├─ settings.py      OpenAI-compatible 配置
 ├─ openai_chat.py   真实流式模型实现
 └─ fake.py          确定性测试模型
+
+src/application/
+├─ capability_catalog.py  M2-Lite Planner 可见的五类独立经营能力目录
+├─ goal_parser.py         自然语言 Goal 解释、可信上下文合并与 Goal 构造
+├─ planner.py             Goal + Existing Context + Catalog 到 M1 Plan
+├─ plan_validation.py     Plan 与 Catalog 的四项轻量确定性校验
+└─ business_agent.py      串联解析、澄清、规划和校验的轻量应用入口
 ```
 
 ## 依赖方向
 
 ```text
-未来 Application（M2）
+Application（M2-Lite）
        ├──→ Domain
-       └──→ Agent Runtime ──→ Model
+       └──→ Model
+
+未来能力执行：Application ──→ Agent Runtime ──→ Model
 ```
 
-`domain` 不导入 `agent` 或 `model`；`agent` 与 `model` 也不导入 `domain`。未来 Application 是唯一可同时组合领域契约和通用 Runtime 的位置。
+`domain` 不导入 `agent` 或 `model`；`agent` 与 `model` 也不导入 `domain`。Application 是唯一可同时组合领域契约、模型和通用 Runtime 的位置；当前 Goal Parser 与 Planner 直接依赖 `ChatModel`，BusinessAgent 只编排这两个应用组件，尚未组合 Agent Runtime。
+
+Capability Catalog 是无固定流程语义的能力集合，不包含步骤编号、顺序或前后继关系。后续 Planner 应根据 Goal 与已有 Context 从中选择最少合理能力，而不能机械生成五步流程。
 
 ## 领域数据流
 
 ```text
 原始经营请求 + 可信上下文
               ↓
-      Goal（版本化）
+ BusinessAgent → Goal Parser（模型解释语义，代码注入可信字段）
               ↓
-      Plan（选择 Capability）
+ Goal（版本化）或 CLARIFICATION_REQUIRED
+              ↓
+ Planner（Goal + Existing Context + Catalog）
+              ↓
+ Plan Validation → PLAN_READY / FAILED
               ↓
 CapabilityRequest / CapabilityResult
               ↓
 Opportunity ← Evidence
 ```
 
-M1 仅描述上述对象及其机器可校验不变量；没有 Goal Parser、Planner、Capability Runtime、业务 Tool、数据持久化或 HTTP API。CapabilityResult 的 `execution_meta.trace_id` 是字符串引用，避免 Domain 依赖 Agent Trace 类型；`rule_result_refs` 统一保存 `RULE_RESULT` Evidence ID，并由后续 Application 在可取得 Evidence 集合时解析类型。
+M1 描述领域对象及其机器可校验不变量；M2-Lite 已通过 BusinessAgent 实现自然语言到 Goal、澄清或动态 Plan 的完整应用链路，但仍没有 Capability Runtime、业务 Tool、数据持久化或 HTTP API。CapabilityResult 的 `execution_meta.trace_id` 是字符串引用，避免 Domain 依赖 Agent Trace 类型；`rule_result_refs` 统一保存 `RULE_RESULT` Evidence ID，并由后续 Application 在可取得 Evidence 集合时解析类型。
+
+Goal Parser 不把 `RuntimeContext` 发送给模型。模型只返回业务语义 JSON；Application 生成新 Goal ID、管理版本和原始请求，并以 RuntimeContext 覆盖可信 actor/channel。时间只接受用户原文表达，模型提供的起止日期不进入 Goal；产品和需求提及需在用户原文中出现。
+
+Planner 将 Goal、简单引用 Context 和 Capability Catalog 发送给模型。模型只返回 `step_id`、`capability_id` 与 `depends_on`；Application 负责 Plan 身份和状态。Catalog 不携带固定顺序，已有机会、客户或任务上下文可以直接选择后续能力。
+
+Planner 返回前调用独立 `validate_plan()`，确定性检查 capability_id 属于 Catalog、step_id 唯一、依赖目标存在且依赖图无环。该函数不判断业务语义是否合理，也不承担上下文依赖、版本绑定、输出类型或副作用治理。
+
+BusinessAgent 是无持久状态的轻量 Orchestrator：Parser 要求澄清时不调用 Planner；正常时向 Planner 传递 Goal、Existing Context 和 Catalog，并再次守卫 Plan 合法性；解析、规划或校验异常统一收敛为带简单错误信息的 `FAILED` 响应。
 
 ## M1 已强制的契约
 
