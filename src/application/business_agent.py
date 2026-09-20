@@ -1,47 +1,58 @@
-"""Lightweight application orchestrator for the M2-Lite request path."""
+"""Lightweight application orchestrator from request through plan execution."""
 
 from dataclasses import dataclass
 from enum import StrEnum
 
-from src.domain import Goal, Plan
+from src.domain import CapabilityResult, Goal, Plan
 
 from .capability_catalog import CAPABILITY_CATALOG
+from .capability_executor import CapabilityExecutor
+from .continuation import ContinuationAction, decide_continuation
+from .execution_context import ExecutionContext
 from .goal_parser import GoalParser, RuntimeContext
 from .planner import CapabilityCatalog, ExistingContext, Planner
 from .plan_validation import validate_plan
+from .step_execution import execute_step
+from .step_resolution import get_next_ready_step
 
 
 class BusinessAgentStatus(StrEnum):
-    PLAN_READY = "PLAN_READY"
+    COMPLETED = "COMPLETED"
     CLARIFICATION_REQUIRED = "CLARIFICATION_REQUIRED"
+    STOPPED = "STOPPED"
     FAILED = "FAILED"
 
 
 @dataclass(frozen=True, slots=True)
 class BusinessAgentResponse:
-    """One of the three deliberately small M2-Lite response shapes."""
+    """Small response shared by parsing, planning, and execution outcomes."""
 
     status: BusinessAgentStatus
     goal: Goal | None = None
     plan: Plan | None = None
+    execution_context: ExecutionContext | None = None
+    last_result: CapabilityResult | None = None
     question: str | None = None
+    message: str | None = None
     error: str | None = None
 
 
 class BusinessAgent:
-    """Connect Goal parsing and planning without becoming another Agent Loop."""
+    """Connect Goal parsing, planning, and the minimal capability loop."""
 
     def __init__(
         self,
         *,
         goal_parser: GoalParser,
         planner: Planner,
+        capability_executor: CapabilityExecutor,
         capability_catalog: CapabilityCatalog = CAPABILITY_CATALOG,
     ) -> None:
         if not capability_catalog:
             raise ValueError("Capability catalog must not be empty")
         self._goal_parser = goal_parser
         self._planner = planner
+        self._capability_executor = capability_executor
         self._capability_catalog = capability_catalog
 
     async def handle(
@@ -75,13 +86,90 @@ class BusinessAgent:
                 capability_catalog=self._capability_catalog,
             )
             validate_plan(plan, self._capability_catalog)
-            return BusinessAgentResponse(
-                status=BusinessAgentStatus.PLAN_READY,
+            context = ExecutionContext(
                 goal=goal,
-                plan=plan,
+                current_plan=plan,
+                known_context=dict(existing_context or {}),
             )
+            return await self._execute_plan(context)
         except Exception as exc:
             return BusinessAgentResponse(
                 status=BusinessAgentStatus.FAILED,
                 error=str(exc) or type(exc).__name__,
             )
+
+    async def _execute_plan(
+        self,
+        context: ExecutionContext,
+    ) -> BusinessAgentResponse:
+        replan_count = 0
+
+        while True:
+            step = get_next_ready_step(context.current_plan, context)
+            if step is None:
+                return self._stopped_response(
+                    context,
+                    message="Plan has no executable step",
+                )
+
+            result = execute_step(step, context, self._capability_executor)
+            action = decide_continuation(
+                context.current_plan,
+                context,
+                result,
+            )
+
+            if action is ContinuationAction.CONTINUE:
+                continue
+            if action is ContinuationAction.FINISH:
+                return BusinessAgentResponse(
+                    status=BusinessAgentStatus.COMPLETED,
+                    goal=context.goal,
+                    plan=context.current_plan,
+                    execution_context=context,
+                    last_result=result,
+                )
+            if action is ContinuationAction.ASK_USER:
+                question = "; ".join(
+                    item.reason for item in result.missing_information
+                )
+                return BusinessAgentResponse(
+                    status=BusinessAgentStatus.CLARIFICATION_REQUIRED,
+                    goal=context.goal,
+                    plan=context.current_plan,
+                    execution_context=context,
+                    last_result=result,
+                    question=question,
+                )
+            if action is ContinuationAction.STOP:
+                return self._stopped_response(context, last_result=result)
+
+            if replan_count >= 1:
+                return self._stopped_response(
+                    context,
+                    last_result=result,
+                    message="Maximum replan count reached",
+                )
+
+            context.current_plan = await self._planner.replan(
+                context=context,
+                last_result=result,
+                capability_catalog=self._capability_catalog,
+            )
+            replan_count += 1
+
+    @staticmethod
+    def _stopped_response(
+        context: ExecutionContext,
+        *,
+        last_result: CapabilityResult | None = None,
+        message: str | None = None,
+    ) -> BusinessAgentResponse:
+        return BusinessAgentResponse(
+            status=BusinessAgentStatus.STOPPED,
+            goal=context.goal,
+            plan=context.current_plan,
+            execution_context=context,
+            last_result=last_result,
+            message=message,
+        )

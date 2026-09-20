@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+- 2026-09-20 完成 M3-T07 最小执行闭环：BusinessAgent 在 Goal Parser 与 Planner 之后创建 ExecutionContext，直接组合 Ready Step 解析、CapabilityExecutor、单步执行、Continuation Policy 和 `Planner.replan()`；成功自动推进，`NO_RESULT` 最多触发一次 Plan 新版本，`NEED_INFORMATION` 返回澄清，`BLOCKED/FAILED` CapabilityResult 返回停止。响应保留最终 Plan、ExecutionContext 和最近结果；未新增 ExecutionEngine、Retry、Fallback、Resume、并行调度或持久化。
+- 新增 5 项 BusinessAgent 执行行为测试，覆盖正常三步且不重规划、`NO_RESULT → Plan V2` 且成功步骤不重跑、缺信息询问、规则阻断停止和技术失败不重试；既有 8 项动态规划行为测试接入 Fake Capability 后继续验证单能力和已有上下文跳步。完整离线测试共 74 项通过，并完成 `src`、`tests` 及 BusinessAgent 冒烟脚本字节码编译；真实模型 Replan 本轮未执行。
+
+- 2026-09-20 完成 M3-T06 最小 Replan：在既有 `Planner` 上增加只处理 `NO_RESULT` 的 `replan()`，向同一 ChatModel 提供 Goal、当前 Plan、已知 Context、历史步骤结果、最近结果和 Capability Catalog，并通过既有 `Plan.revise()` 生成同一 plan_id 的完整下一版本；未新增 Replanner/Engine、PlanPatch、Retry、Fallback、候选 Plan 比较、重规划历史仓库或生产执行循环。
+- 新增 `validate_replan()`，仅阻止已取得 `SUCCESS/PARTIAL_SUCCESS` 的旧 step_id 在新 Plan 中改变 capability_id；重规划仍复用 `validate_plan()` 的 Catalog、唯一 ID、依赖存在和无环校验。新增 6 项 FakeModel 测试，覆盖 Plan V2、成功步骤不重跑、同 Capability 新 step_id 再执行、Catalog 外能力拒绝、成功步骤身份保护，以及 `NO_RESULT → REPLAN → Plan V2 → FINISH` 最小闭环；完整离线测试共 69 项通过，并完成 `src`、`tests` 字节码编译。
+
+- 2026-09-20 完成 M3-T05 最小 Continuation Policy：新增 `ContinuationAction`、`is_plan_finished()` 与 `decide_continuation()`；成功类结果根据 Ready Step 和完成状态进入 `CONTINUE/FINISH`，`NO_RESULT` 进入 `REPLAN`，缺信息进入 `ASK_USER`，业务阻断、技术失败及不一致状态进入 `STOP`。`REPLAN` 仅作为 T06 接入点，未新增 Policy 类、Retry、Fallback、Resume、重规划实现或执行循环。
+- 新增 8 项单元测试，覆盖成功继续、成功完成、部分成功继续、无结果重规划、缺信息询问、业务阻断停止、技术失败停止和无 Ready Step 且未完成时停止；完整离线测试共 63 项通过，并完成 `src`、`tests` 字节码编译。
+- 2026-09-20 完成 M3-T04 最小 Ready Step 解析：新增普通 `is_step_ready()` 与 `get_next_ready_step()`；仅当步骤未执行且全部依赖结果为 `SUCCESS` 或 `PARTIAL_SUCCESS` 时 Ready，并按 Plan 出现顺序选择第一个 Ready Step。未新增调度器、优先队列、并行执行、第二套 Step 状态、Plan 完成/卡住判定或 Continuation Policy。
+- 新增 6 项单元测试，覆盖无依赖步骤、已执行步骤、依赖未完成、成功与部分成功释放依赖、非成功状态阻断、多个 Ready Step 的 Plan 顺序选择，以及三步依赖链各执行一次的最小端到端链路；完整离线测试共 55 项通过，并完成 `src`、`tests` 字节码编译。
+- 2026-09-20 完成 M3-T03 最小单步执行链路：新增普通 `build_capability_request()`，把 PlanStep、当前 Goal/Plan 版本、可信 actor/channel 来源和已知上下文映射为 M1 既有 CapabilityRequest；新增 `execute_step()`，经 CapabilityExecutor 执行并将成功或失败结果写入 ExecutionContext。未新增 Builder、Factory、调度器、状态机、Ready 判断、输出合并或执行循环。
+- 新增 3 项单元测试，覆盖请求字段映射、成功分发并记录和 Executor 失败记录；完整离线测试共 49 项通过，并完成 `src`、`tests` 字节码编译。
+- 2026-09-20 完成 M3-T02 最小 ExecutionContext：仅保存当前 Goal、当前 Plan、已知事实和按 step_id 索引的 CapabilityResult；`record_result()` 覆盖同一步骤的最新结果，不自动合并 Capability 输出，未新增执行状态、Plan 历史、产物解析或步骤调度。
+- 新增 3 项 ExecutionContext 单元测试，覆盖默认容器隔离、已知事实与执行结果分离，以及同一步骤结果替换；完整离线测试共 46 项通过。
+- 2026-09-20 完成 M3-T01 最小 CapabilityExecutor：以普通 `capability_id -> callable` 映射执行已有 CapabilityRequest，成功结果原样返回，未注册 handler 与 handler 异常分别收敛为 M1 既有的依赖类和内部类 `FAILED` CapabilityResult；Capability Catalog 与执行映射保持分离，未新增 BaseCapability、Registry、生命周期、重试、执行上下文或步骤调度。
+- 新增 3 项 CapabilityExecutor 单元测试，覆盖成功分发、handler 缺失和 handler 异常；完整离线测试共 43 项通过。
+
 - 2026-09-20 新增 `scripts/smoke_bussiness_agent.py`，使用配置的真实 LLM 服务验证 BusinessAgent 完整链路，覆盖仅看机会、已有 Opportunity 直接圈客和模糊指标澄清三个场景，并检查澄清时不进入 Planner；脚本仅使用虚构标识和测试输入，并打印每次模型 JSON 与最终结构化响应。在线验证先后暴露“刚才的机会”误澄清，以及模型为泛化“测试业绩”创造指标代码并跳过澄清的问题；前者通过 Prompt 规则修正，后者增加确定性澄清门禁，完整离线测试增至 40 项。脚本已调整为逐调用打印进度，并限定 30 秒超时、零重试；修复后的最近一次在线复验在第一个模型调用处明确返回 `Model request timed out`，未进入后续业务链路。
 - 2026-09-20 完成 M2-Lite Step 5 和 Step 6：新增轻量 `BusinessAgent`，串联 Goal Parser、澄清分支、Planner 与 Plan Validation，对外提供 `PLAN_READY`、`CLARIFICATION_REQUIRED`、`FAILED` 三种结果；未新增 Agent Loop、Workflow Engine、状态机或 Capability 执行。
 - 新增 8 个核心 Demo 行为场景，覆盖仅看机会、已有 Opportunity 直接圈客、已有 Customer 直接生成策略、任务追踪、复杂绩效目标、模糊指标澄清、非 Demo 产品和非开门红场景；另验证规划失败收敛为 `FAILED`。完整离线测试共 38 项通过，并完成 `src`、`tests` 及冒烟脚本字节码编译；本轮未重新执行真实模型在线验证。

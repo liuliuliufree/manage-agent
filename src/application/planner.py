@@ -8,11 +8,20 @@ from uuid import uuid4
 
 from openai.types.chat.completion_create_params import CompletionCreateParamsBase
 
-from src.domain import Goal, GoalRef, Plan, PlanStatus, PlanStep
+from src.domain import (
+    CapabilityResult,
+    CapabilityStatus,
+    Goal,
+    GoalRef,
+    Plan,
+    PlanStatus,
+    PlanStep,
+)
 from src.model import ChatModel
 
 from .capability_catalog import CAPABILITY_CATALOG
-from .plan_validation import validate_plan
+from .execution_context import ExecutionContext
+from .plan_validation import validate_plan, validate_replan
 
 
 CapabilityCatalog = Mapping[str, Mapping[str, str]]
@@ -37,6 +46,33 @@ _SYSTEM_PROMPT = """你是智慧经营系统的 Planner。
     {
       "step_id": "inspect_opportunities",
       "capability_id": "directional_insight",
+      "depends_on": []
+    }
+  ]
+}
+"""
+
+
+_REPLAN_SYSTEM_PROMPT = """你正在调整一个已经开始执行的智慧经营 Plan。
+
+根据当前 Goal、当前 Plan、已有 Context、各步骤执行结果、最近一次 NO_RESULT 和 Capability Catalog，生成完整的 Plan 新版本，回答接下来怎么办。
+
+硬性规则：
+1. 只能使用 Capability Catalog 中真实存在的 capability_id，不得创造新能力。
+2. 已经 SUCCESS 或 PARTIAL_SUCCESS 且仍然有效的步骤可以保留，但不得重复执行，也不得改变其 step_id 对应的 capability_id。
+3. 最近的 NO_RESULT 表示能力正常执行但当前条件下没有业务结果；不要在新 Plan 中保留该旧 step_id，也不要让新步骤依赖它。
+4. 可以再次调用同一 capability_id，但必须使用新的 step_id，并结合当前 Context 调整后续路径。
+5. Capability 可以跳过、重复和重新排列；不要机械补齐全部能力。
+6. 只加入完成当前 Goal 所需的最少步骤。
+7. depends_on 只表达新 Plan 内真实必要的依赖；step_id 在新 Plan 内必须唯一。
+8. 只输出 JSON 对象，不要输出解释或 Markdown。
+
+输出格式：
+{
+  "steps": [
+    {
+      "step_id": "retained_or_new_step",
+      "capability_id": "capability_from_catalog",
       "depends_on": []
     }
   ]
@@ -97,6 +133,39 @@ class Planner:
         validate_plan(plan, capability_catalog)
         return plan
 
+    async def replan(
+        self,
+        *,
+        context: ExecutionContext,
+        last_result: CapabilityResult,
+        capability_catalog: CapabilityCatalog = CAPABILITY_CATALOG,
+    ) -> Plan:
+        """Create the next full Plan version after a normal NO_RESULT outcome."""
+        if last_result.status is not CapabilityStatus.NO_RESULT:
+            raise ValueError("Planner.replan only supports NO_RESULT")
+        if not capability_catalog:
+            raise ValueError("Capability catalog must not be empty")
+
+        old_plan = context.current_plan
+        request = self._replan_model_request(
+            context=context,
+            last_result=last_result,
+            capability_catalog=capability_catalog,
+        )
+        completion = await self._model.complete(request)
+        content = self._completion_content(completion)
+
+        try:
+            payload = self._parse_payload(content)
+        except ValueError:
+            repair = await self._model.complete(self._repair_request(content))
+            payload = self._parse_payload(self._completion_content(repair))
+
+        new_plan = old_plan.revise(steps=self._steps(payload))
+        validate_plan(new_plan, capability_catalog)
+        validate_replan(old_plan, new_plan, context)
+        return new_plan
+
     def _model_request(
         self,
         *,
@@ -118,6 +187,44 @@ class Planner:
                 "model": self._model_name,
                 "messages": [
                     {"role": "system", "content": _SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": json.dumps(
+                            payload,
+                            ensure_ascii=False,
+                            default=str,
+                        ),
+                    },
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0,
+            },
+        )
+
+    def _replan_model_request(
+        self,
+        *,
+        context: ExecutionContext,
+        last_result: CapabilityResult,
+        capability_catalog: CapabilityCatalog,
+    ) -> CompletionCreateParamsBase:
+        payload = {
+            "goal": asdict(context.goal),
+            "current_plan": asdict(context.current_plan),
+            "known_context": context.known_context,
+            "step_results": {
+                step_id: asdict(result)
+                for step_id, result in context.step_results.items()
+            },
+            "last_result": asdict(last_result),
+            "capability_catalog": capability_catalog,
+        }
+        return cast(
+            CompletionCreateParamsBase,
+            {
+                "model": self._model_name,
+                "messages": [
+                    {"role": "system", "content": _REPLAN_SYSTEM_PROMPT},
                     {
                         "role": "user",
                         "content": json.dumps(

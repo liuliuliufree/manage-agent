@@ -6,12 +6,15 @@ from datetime import datetime
 from openai.types.chat import ChatCompletion
 
 from src.application import (
+    CAPABILITY_CATALOG,
     BusinessAgent,
     BusinessAgentStatus,
+    CapabilityExecutor,
     GoalParser,
     Planner,
     RuntimeContext,
 )
+from src.domain import CapabilityRequest, CapabilityResult, CapabilityStatus
 from src.model import FakeChatModel
 
 
@@ -76,8 +79,22 @@ def agent_for(
             model_name="fake-planner",
             plan_id_factory=lambda: "plan_demo",
         ),
+        capability_executor=CapabilityExecutor(
+            {
+                capability_id: _successful_handler
+                for capability_id in CAPABILITY_CATALOG
+            }
+        ),
     )
     return agent, goal_model, plan_model
+
+
+def _successful_handler(request: CapabilityRequest) -> CapabilityResult:
+    return CapabilityResult(
+        request_id=request.request_id,
+        capability_id=request.capability_id,
+        status=CapabilityStatus.SUCCESS,
+    )
 
 
 def parsed_goal(
@@ -112,7 +129,7 @@ class BusinessAgentBehaviourTests(unittest.TestCase):
                 existing_context=existing_context,
             )
         )
-        self.assertEqual(response.status, BusinessAgentStatus.PLAN_READY)
+        self.assertEqual(response.status, BusinessAgentStatus.COMPLETED)
         self.assertIsNotNone(response.goal)
         self.assertIsNotNone(response.plan)
         return response

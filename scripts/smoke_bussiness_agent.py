@@ -1,4 +1,4 @@
-"""Run the complete M2-Lite BusinessAgent path against the configured model."""
+"""Run the BusinessAgent planning and fake-capability path against the real model."""
 
 import asyncio
 import json
@@ -15,13 +15,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.application import (  # noqa: E402
+    CAPABILITY_CATALOG,
     BusinessAgent,
     BusinessAgentResponse,
     BusinessAgentStatus,
+    CapabilityExecutor,
     GoalParser,
     Planner,
     RuntimeContext,
 )
+from src.domain import CapabilityRequest, CapabilityResult, CapabilityStatus  # noqa: E402
 from src.model import ChatModelSettings, OpenAIChatModel  # noqa: E402
 
 
@@ -49,6 +52,14 @@ class RecordingChatModel:
 
     async def close(self) -> None:
         await self._delegate.close()
+
+
+def successful_fake_capability(request: CapabilityRequest) -> CapabilityResult:
+    return CapabilityResult(
+        request_id=request.request_id,
+        capability_id=request.capability_id,
+        status=CapabilityStatus.SUCCESS,
+    )
 
 
 def print_case(
@@ -148,6 +159,12 @@ async def main() -> None:
     agent = BusinessAgent(
         goal_parser=GoalParser(model=model, model_name=settings.model),
         planner=Planner(model=model, model_name=settings.model),
+        capability_executor=CapabilityExecutor(
+            {
+                capability_id: successful_fake_capability
+                for capability_id in CAPABILITY_CATALOG
+            }
+        ),
     )
     runtime_context = RuntimeContext(
         actor_ref="agent_smoke_001",
@@ -162,7 +179,7 @@ async def main() -> None:
             title="Opportunity only",
             user_request="测试场景最近有什么值得关注的经营机会？",
             existing_context=None,
-            expected_status=BusinessAgentStatus.PLAN_READY,
+            expected_status=BusinessAgentStatus.COMPLETED,
             expected_capabilities=("directional_insight",),
             expected_model_calls=2,
         )
@@ -175,7 +192,7 @@ async def main() -> None:
             existing_context={
                 "opportunity_refs": ["opportunity_smoke_001"],
             },
-            expected_status=BusinessAgentStatus.PLAN_READY,
+            expected_status=BusinessAgentStatus.COMPLETED,
             expected_capabilities=("customer_targeting",),
             expected_model_calls=2,
         )
