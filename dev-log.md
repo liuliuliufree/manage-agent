@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- 2026-09-21 完成 Goal Parser 收敛最小实现：在 `src.application.goal_parser` 保持统一入口，新增版本化 NBEV 指标词汇快照、顶层 `KEEP/SET/CLEAR` 合并、首次 `original_request` 保留、阻塞性 `MissingInformation`、单次 JSON 格式修复及明确技术失败结果。BusinessAgent 读取解析状态，在阻塞澄清时不调用 Planner；actor/channel 仍只由 Runtime Context 注入。新增 Goal Parser 契约测试，覆盖创建、可信上下文、指标白名单、澄清不规划、修改/清空、旧版本不可变、原文过滤和单次修复。2026-09-21 当前 19 项 `unittest` 与 `src`、`tests` 字节码编译通过；未执行真实模型在线验证。
+
+- 2026-09-21 确认 `doc/design/2026-09-21-replan-convergence.md`：Replan 复用 Planner，以结构化 Trigger、受控 Snapshot、完整 Plan 新版本和原子切换收敛跨版本恢复；Demo 首版仅自动处理 `NO_RESULT`，由显式运行 Policy 管理一次预算。确认有效成功产物与步骤分离、失败步骤退出新活动依赖链、失败模型生成尝试消耗预算，以及通过版本链和审计事件推导旧 Plan 的 `SUPERSEDED`。该结论不改变当前代码、实现事实或验证基线。
+
+- 2026-09-21 确认 `doc/design/2026-09-21-capability-artifact-flow.md`：Application 使用产物注册表分离初始产物、运行产物和执行历史；只发布受控的显式输出，禁止 payload 自动合并；Capability 采用最小输入输出类型边界，后继输入按依赖与初始 Context 受控解析。确认 Planner 与执行前共用输入不足双层门禁，首版以权威来源有效性、Goal 关联和保守冲突拒绝控制产物复用。该结论不改变当前代码、实现事实或验证基线。
+
 - 2026-09-21 确认 `doc/design/2026-09-21-planner-convergence.md`：首次规划采用模型草案与正式 Plan 分离、Application 分配正式 step ID、统一规划结果、受控 Planning Context 和 Application Capability View；明确首版可执行性校验边界、一次可观察的受限语义重试、无需行动不创建空 Plan、生命周期由 Application 执行协调职责管理，以及先等价拆分 Planner 内部结构再引入行为变化。本次仅确认设计，未修改代码、当前实现事实或验证基线。
 
 - 2026-09-21 将 `doc/roadmap/M1/` 的领域边界、Goal、Evidence、Opportunity、Capability、状态、Plan 和契约测试设计收敛到唯一整体文档 `M1.md`；删除已被合并且包含旧字段方案的 T01～T08 分篇，避免与当前代码和收敛决策形成双重事实源。整体文档新增“未来可新增的契约细节”和演进评审清单，分别说明非量化完成条件、证据冲突、圈客条件、机会有效性、写操作策略、类型化 Capability 输入、持久运行状态及新领域产物的真实触发条件和归属边界。本次仅调整文档，未修改代码行为或验证基线。

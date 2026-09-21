@@ -1,6 +1,6 @@
 # Capability 产物引用流转收敛设计
 
-状态：待确认
+状态：已确认
 
 ## 1. 文档定位
 
@@ -306,7 +306,7 @@ GoalRef 已经由 CapabilityRequest 单独携带，不需要作为普通 input r
 
 ### 12.3 引用冲突
 
-同一规范化引用不能被注册为不同类型或具有冲突来源。来源冲突需要显式保留并进入错误或治理路径，不能由 ExecutionContext 静默覆盖。
+首版采用保守拒绝、显式重验的规则。同一规范化引用只有在类型、Goal 关联、有效性结论和权威事实来源版本一致时才能重复发布，并视为幂等；来源血缘可以追加，但不得覆盖既有血缘。类型不同、Goal 关联不一致、有效性结论冲突，或权威来源版本相互矛盾时，Application 必须拒绝发布或使用该引用，并返回结构化信息缺失或治理错误。不得静默覆盖、按可信度排序或让模型任选其一。
 
 ## 13. Initial Context 迁移
 
@@ -369,11 +369,11 @@ Replan 时，Opportunity 是可复用产物，s2 的 NO_RESULT 是执行历史�
 
 每个产物引用应记录产生时的 GoalRef 和 PlanRef。
 
-候选首版规则是：
+已确认的首版规则是：
 
-- 同一 Goal 版本内 Replan，成功产物默认继续有效；
+- 同一 Goal 版本内 Replan，成功产物在权威来源仍判定有效时继续有效；
 - Plan 版本变化不自动使产物失效；
-- Goal 版本变化不能默认继续使用旧产物，需要重新验证；
+- Goal 版本变化时，旧产物进入待重新验证状态，不能默认复用或默认失效；
 - 带有效期或受外部状态影响的产物，由其事实源或 Capability 决定是否仍有效；
 - Rule Result 不能因为 Plan 换版被模型解释为无效。
 
@@ -445,26 +445,18 @@ CapabilityExecutor 不承担 Context 更新、输入解析、产物注册、Plan
 - 禁止自动 payload 合并会要求真实 Capability 提供可解析引用和对象存储，这是正确的长期方向，但会增加 Demo 适配工作。
 - Goal 版本变化后的产物有效性无法仅由执行层判断，必须保留血缘并交给后续恢复策略。
 
-## 21. 待确认事项
+## 21. 已确认事项
 
-实施前需要确认：
-
-1. 是否引入 Application 层产物注册表。
-2. 是否明确区分初始产物、运行产物和 step results。
-3. 是否只允许明确 CapabilityOutput 发布普通业务产物。
-4. SUCCESS 和 PARTIAL_SUCCESS 是否都允许发布明确输出。
-5. Evidence 与 Rule Result 默认只作为血缘和审计引用，还是可以自动成为普通输入。
-6. Capability 是否增加最小输入输出类型和多值能力声明。
-7. 后继输入是否按直接依赖、依赖链、初始 Context 的顺序解析。
-8. 多个引用无法唯一确定时是否返回信息缺失，而不是自动选择。
-9. 是否确定禁止自动合并 CapabilityOutput payload。
-10. Request/Result 关联一致性是否由 Application 强制校验。
-11. Plan 换版时成功产物是否独立于旧步骤继续保留。
-12. Goal 版本变化时是否默认要求重新验证产物。
-13. 输入不足应由规划阶段阻止，还是允许执行前返回统一的信息缺失结果。
-14. 产物有效性和引用冲突的首版最小规则是什么。
-
-本文推荐：前十二项采用正文中的候选方向；第十三和第十四项在 Planner 结果与 Replan 设计中共同确认。
+1. 引入 Application 层产物注册表，并区分初始产物、运行产物与 step results。
+2. 只有明确的 CapabilityOutput 能发布普通业务产物；`SUCCESS` 与 `PARTIAL_SUCCESS` 均可发布通过校验的明确输出，后者必须保留质量和限制标记。
+3. Evidence 与 Rule Result 默认只保留为血缘和审计引用；只有后继 Capability 明确声明合法消费时才可作为普通输入。
+4. Capability 增加最小的必需/可选输入类型、可产出类型和每类输入多值能力声明。
+5. 后继输入按直接依赖步骤、依赖链、初始 Context 的顺序解析；单值输入无法唯一确定时返回结构化信息缺失，不调用 Capability，也不由模型猜选。
+6. 禁止自动合并 CapabilityOutput payload；Application 强制校验 Request/Result 关联一致性。
+7. Plan 换版不使仍有效的成功产物失效；Goal 版本变化时产物必须重新验证后才可复用。
+8. 输入不足采用双层门禁：Planner 对当前 Context 和 Capability View 已可确定的必需输入缺失返回 `INFORMATION_REQUIRED`，不创建 Plan；执行前使用同一套输入解析再次校验，处理规划后失效、撤销、冲突或 Context 与 Plan 不一致的情况，并同样返回 `INFORMATION_REQUIRED`，不调用 Capability。该情况不得伪装为 `NO_RESULT` 或执行失败。
+9. 首版产物可用条件为：规范化引用唯一、来源状态为 `SUCCESS` 或 `PARTIAL_SUCCESS`、GoalRef 与当前 GoalRef 一致，且权威来源未判定过期、撤销或不可用。`PARTIAL_SUCCESS` 产物的限制和质量必须随引用保留，后继 Capability 可以声明不接受。
+10. 引用冲突采用保守拒绝：同一 `type:id` 仅在类型、Goal 关联、有效性结论和权威事实来源版本一致时幂等；冲突时拒绝发布或使用，返回结构化信息缺失或治理错误，不自动消解、覆盖或选择。
 
 ## 22. 成功标准
 

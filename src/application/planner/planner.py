@@ -19,8 +19,8 @@ from src.domain import (
 )
 from src.model import ChatModel
 
-from .capability_catalog import CAPABILITY_CATALOG
-from .execution_context import ExecutionContext
+from ..capability.capability_catalog import CAPABILITY_CATALOG
+from ..capability.execution_context import ExecutionContext
 from .plan_validation import validate_plan, validate_replan
 
 

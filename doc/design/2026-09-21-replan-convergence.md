@@ -1,6 +1,6 @@
 # Replan 收敛设计
 
-状态：待确认
+状态：已确认
 
 ## 1. 文档定位
 
@@ -396,7 +396,7 @@ Goal 版本变化后，新 Plan 的 GoalRef 必须指向新版本。旧产物不
 - 返回应用级 FAILED 或 STOPPED；
 - 不自动无限修复或重试。
 
-失败尝试是否消耗 Replan 预算，仍需确认。推荐计入尝试预算，以防模型协议错误形成循环，但应在审计中区分“生成失败”和“已切换版本”。
+一次通过前置校验并实际开始的 Replan 模型生成尝试，即消耗 Replan 预算，无论最终因模型失败或候选校验失败而未切换 Plan；未发起模型调用的 Trigger 或 Snapshot 前置校验失败不消耗预算。审计必须区分“尝试失败”和“成功切换”，以防模型协议错误形成循环，同时保留失败原因。
 
 ## 16. Plan 历史和审计
 
@@ -421,7 +421,7 @@ Plan V2（如果成功）
 
 当前阶段不一定建设持久化 Repository，但内存运行状态不能在切换新 Plan 后完全丢失旧版本。
 
-旧 Plan 的 `SUPERSEDED` 表达需要与 Plan 生命周期设计共同确认。候选方向是通过版本链和运行记录推导旧版本已被替代，不原地修改不可变的旧 Plan 内容。
+旧 Plan 的 `SUPERSEDED` 由 Plan 版本链和成功 Replan 的审计事件推导，不原地修改不可变的旧 Plan 内容。运行视图可以将 V1 呈现为 `SUPERSEDED`；V2 的 `supersedes_version=1` 与成功切换记录共同构成该事实。
 
 ## 17. Replan 后继续执行
 
@@ -511,32 +511,21 @@ BusinessAgent 不应为 Replan 创建第二套执行循环。
 - 将失败 Replan 尝试计入预算有利于防循环，但可能降低偶发模型格式错误后的恢复机会。
 - Goal 修订与执行 Replan 共用基础设施有利于复用，但不能混淆二者的产物有效性语义。
 
-## 22. 待确认事项
+## 22. 已确认事项
 
-实施前需要确认：
-
-1. 是否继续复用同一个 Planner，不新增 Replanner。
-2. 是否继续生成完整 Plan 新版本，不使用 PlanPatch。
-3. 是否引入结构化 Replan Trigger。
-4. 首版是否仍只自动处理 NO_RESULT。
-5. PARTIAL_SUCCESS 是否只有在确定性策略判断结果不足时才 Replan。
-6. NEED_INFORMATION 是否明确不 Replan。
-7. FAILED 是否先进入 Retry/Fallback Policy，默认不 Replan。
-8. BLOCKED 是否只允许在不绕过 Rule Result 的合法剩余路径中 Replan。
-9. 成功产物是否独立于旧步骤继续保留。
-10. 成功步骤是否允许在新 Plan 中省略。
-11. NO_RESULT、FAILED 和 BLOCKED 的旧 step ID 是否禁止进入新 Plan。
-12. 正式新 step ID 是否由 Application 分配。
-13. 是否增加 Plan 指纹，拒绝无实质变化的新 Plan。
-14. Plan 切换是否必须原子化。
-15. 是否保存最小 Plan 版本历史和 Replan 审计记录。
-16. Demo 首版是否保持最大一次 Replan，但由运行 Policy 管理。
-17. Goal 修改是否与同 Goal 执行 Replan 分开处理。
-18. 是否按阶段逐步开放更多 Trigger。
-19. 失败的 Replan 尝试是否消耗预算。
-20. 旧 Plan 的 SUPERSEDED 状态是持久状态，还是由版本链推导。
-
-本文推荐前十八项采用正文候选方向；第十九项推荐消耗尝试预算但区分失败类型；第二十项与 Plan 生命周期方案共同确认。
+1. Replan 复用同一个 Planner，不新增 Replanner 或第二套规划框架；通过完整 Plan 新版本表达变更，不使用 PlanPatch。
+2. 引入 Application 层的结构化 Replan Trigger；模型只根据受控 Replan Snapshot 生成剩余路径，不能决定触发时机、版本身份、产物有效性或规则例外。
+3. Demo 首版仅自动处理 `NO_RESULT`。`PARTIAL_SUCCESS` 仅在确定性策略判定已发布产物不足以完成剩余路径时才可触发 Replan；`NEED_INFORMATION` 先暂停并补齐可信信息，不 Replan。
+4. `FAILED` 默认不 Replan；Retry/Fallback 尚未设计或确认前按停止处理。只有 Capability 被确定性标记为不可用且存在合法替代路径时，后续阶段才可增加相应 Trigger。
+5. `BLOCKED` 只允许在完整保留 Rule Result、且新路径不触犯原裁决时进行受约束 Replan；不存在合法剩余路径时整体进入 `BLOCKED`。
+6. 仍有效的成功产物独立于旧步骤继续保留；成功步骤可以从新 Plan 省略。`NO_RESULT`、`FAILED` 和 `BLOCKED` 的旧 step ID 禁止进入新活动 Plan 或成为新步骤依赖；同一 Capability 的重新调用必须使用 Application 分配的新 step ID，并具有输入、范围、实现或可信 Context 的实质变化。
+7. 采用忽略 Plan 身份和正式 step ID 的剩余路径指纹，拒绝 Context 未变化时无实质差异的新 Plan；Plan 仅在全部校验成功后原子切换。
+8. 保存最小 Plan 版本历史、Replan Trigger、Replan Attempt、校验结果和切换结果，以支持回放；切换后不能丢失旧版本、执行历史或仍有效产物。
+9. Demo 首版最多一次 Replan，由显式运行 Policy 管理，而不是散落在 BusinessAgent 分支中。
+10. Goal 修订与同 Goal 版本内的执行 Replan 分开处理：两者可复用 Planner 基础设施，但 Goal 修订后的旧产物必须重新验证后才可使用。
+11. Trigger 按阶段开放；在首版 `NO_RESULT` 稳定后，才依次评估 `PARTIAL_SUCCESS` 不足、Capability 不可用、合法 BLOCKED 剩余路径、Goal 修订和外部状态变化。
+12. 通过前置校验并实际开始的 Replan 模型生成尝试消耗预算，即使模型或候选校验失败；未发起模型调用的 Trigger/Snapshot 前置校验失败不消耗预算。审计明确区分尝试失败和成功切换。
+13. `SUPERSEDED` 由不可变 Plan 的版本链和成功切换审计事件推导；运行视图可以呈现旧版本为 `SUPERSEDED`，但不原地修改旧 Plan。
 
 ## 23. 成功标准
 

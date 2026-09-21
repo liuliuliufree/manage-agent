@@ -4,7 +4,7 @@ from collections.abc import Mapping
 
 from src.domain import CapabilityStatus, Plan
 
-from .execution_context import ExecutionContext
+from ..capability.execution_context import ExecutionContext
 
 
 _SUCCESS_LIKE = frozenset(

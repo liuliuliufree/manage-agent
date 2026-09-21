@@ -8,21 +8,6 @@
 
 本文是已确认设计，但不覆盖当前代码、`doc/current-state.md`、`doc/architecture.md` 或 M1 Domain Contract；在对应代码完成并验证前，不得把本文描述为当前实现事实。本文只确认首次规划以及首次规划与 Replan 共用的基础，Replan 的完整触发矩阵、成功结果保留、Plan 换版和恢复上限另行收敛。
 
-## 1.1 已确认决策摘要
-
-1. 本轮只收敛首次规划；Planning Context、Capability View、草案、正式 Plan 构造和校验作为首次规划与 Replan 的共享基础。
-2. 模型只生成临时步骤别名，正式 step ID 由 Application 分配。
-3. Planner 返回统一的 Application 层规划结果，并区分 `PLAN_READY`、`INFORMATION_REQUIRED`、`UNSUPPORTED`、`NO_ACTION_REQUIRED` 和 `FAILED`。
-4. 无需行动时不创建空 Plan；只有 `PLAN_READY` 携带正式 Plan。
-5. Existing Context 升级为受控、只读的 Planning Context；每次规划必须具有由 Application 注入的规划基准时间。
-6. Planner 使用 Application 层 Capability View；首版不扩展 Domain `CapabilityDefinition`。
-7. Capability View 最小覆盖版本、当前可用性、可执行实现状态、输入输出引用类型、副作用分类和不可绕过的控制策略引用。
-8. 首版可执行性校验只验证元数据能够确定的可用性、实现、输入来源、产物路径、写操作控制、可执行起点和 Goal 关联，不评价经营路径是否最优。
-9. JSON 语法错误保留一次纯格式修复；结构或可执行性失败允许一次可观察的受限语义重试，失败后停止，不做静默改写或循环修复。
-10. Plan 生命周期由 Application 的执行协调职责统一转换；当前可暂由 BusinessAgent 承担，Planner 不改变生命周期。
-11. Planner 内部拆包先作为保持外部行为和公共导入兼容的等价重构单独完成。
-12. 产物引用的有效性和 Goal 关联由 Application 的 Context 构造职责判定；Capability 成功输出经受控提取后才可进入后续 Context，不能自动合并任意 payload。
-
 ## 2. 当前事实
 
 当前 Planner 位于单一 Application 模块中，已经具备以下能力：
@@ -131,13 +116,13 @@ M1 Plan Contract 继续表达针对明确 Goal 版本的当前行动意图。Pla
 
 Planner 统一返回 Application 层规划结果，并明确区分以下结果：
 
-| 结果 | 含义 | 后续动作 |
-| --- | --- | --- |
-| `PLAN_READY` | 已形成合法且当前可执行的 Plan | 创建 ExecutionContext |
-| `INFORMATION_REQUIRED` | 结合能力边界后发现阻塞性信息缺失 | 询问用户，不执行 Plan |
-| `UNSUPPORTED` | 当前可用 Capability 无法完成 Goal | 返回能力缺口，不创造能力 |
-| `NO_ACTION_REQUIRED` | 当前 Goal 已满足或无需执行 Capability | 正常结束 |
-| `FAILED` | 模型协议或内部技术失败 | 进入技术失败处理 |
+| 结果                     | 含义                                  | 后续动作                 |
+| ------------------------ | ------------------------------------- | ------------------------ |
+| `PLAN_READY`           | 已形成合法且当前可执行的 Plan         | 创建 ExecutionContext    |
+| `INFORMATION_REQUIRED` | 结合能力边界后发现阻塞性信息缺失      | 询问用户，不执行 Plan    |
+| `UNSUPPORTED`          | 当前可用 Capability 无法完成 Goal     | 返回能力缺口，不创造能力 |
+| `NO_ACTION_REQUIRED`   | 当前 Goal 已满足或无需执行 Capability | 正常结束                 |
+| `FAILED`               | 模型协议或内部技术失败                | 进入技术失败处理         |
 
 `INFORMATION_REQUIRED` 不替代 Goal Parser。只有必须结合 Capability 输入边界或当前可用性才能发现，且缺失会导致明显不同的行动、越权或不可逆执行时，才属于 Planner 阶段。缺失项必须能对应 Capability View 中的必需输入或控制要求，不能仅凭模型偏好扩大澄清范围。
 
@@ -395,18 +380,18 @@ Capability 的单次失败不自动等于 Plan 生命周期失败。状态转换
 
 ## 17. 已确认事项
 
-1. 本轮只收敛首次规划及其与 Replan 共用的基础，完整 Replan 另行设计。
-2. 正式 step ID 由 Application 分配，模型只生成单次草案内的临时别名。
-3. Planner 返回统一 Application 规划结果，不再以“Plan 或异常”承载全部语义。
-4. 明确区分 `PLAN_READY`、`NO_ACTION_REQUIRED`、`UNSUPPORTED`、`INFORMATION_REQUIRED` 和 `FAILED`。
-5. Existing Context 升级为受控 Planning Context，并要求 Application 注入规划基准时间。
-6. Planner 可见 Capability 信息增加版本、可用性来源、实现就绪状态、输入输出引用类型、副作用和控制策略。
-7. 新增信息先进入 Application View，暂不扩展 Domain `CapabilityDefinition`。
-8. 首版可执行性校验以当前元数据可证明的能力可用、实现就绪、输入可达、产物路径、写控制、可执行起点和 Goal 关联为边界。
-9. 首次草案结构或可执行性失败允许一次可观察的受限语义重试；仍失败则停止。
-10. 无需行动返回 `NO_ACTION_REQUIRED`，不创建空 Plan。
-11. Plan 生命周期转换统一属于 Application 执行协调职责，当前可由 BusinessAgent 承担，Planner 不负责转换。
-12. Planner 内部拆包先作为保持外部行为和公共导入兼容的等价重构单独完成。
+* 本轮只收敛首次规划；Planning Context、Capability View、草案、正式 Plan 构造和校验作为首次规划与 Replan 的共享基础。
+* 模型只生成临时步骤别名，正式 step ID 由 Application 分配。
+* Planner 返回统一的 Application 层规划结果，并区分 `PLAN_READY`、`INFORMATION_REQUIRED`、`UNSUPPORTED`、`NO_ACTION_REQUIRED` 和 `FAILED`。
+* 无需行动时不创建空 Plan；只有 `PLAN_READY` 携带正式 Plan。
+* Existing Context 升级为受控、只读的 Planning Context；每次规划必须具有由 Application 注入的规划基准时间。
+* Planner 使用 Application 层 Capability View；首版不扩展 Domain `CapabilityDefinition`。
+* Capability View 最小覆盖版本、当前可用性、可执行实现状态、输入输出引用类型、副作用分类和不可绕过的控制策略引用。
+* 首版可执行性校验只验证元数据能够确定的可用性、实现、输入来源、产物路径、写操作控制、可执行起点和 Goal 关联，不评价经营路径是否最优。
+* JSON 语法错误保留一次纯格式修复；结构或可执行性失败允许一次可观察的受限语义重试，失败后停止，不做静默改写或循环修复。
+* Plan 生命周期由 Application 的执行协调职责统一转换；当前可暂由 BusinessAgent 承担，Planner 不改变生命周期。
+* Planner 内部拆包先作为保持外部行为和公共导入兼容的等价重构单独完成。
+* 产物引用的有效性和 Goal 关联由 Application 的 Context 构造职责判定；Capability 成功输出经受控提取后才可进入后续 Context，不能自动合并任意 payload。
 
 ## 17.1 留待后续设计的问题
 

@@ -101,13 +101,18 @@ class Goal:
         if not self.goal_type.strip():
             raise ValueError("goal_type is required")
 
-    def revise(self, *, original_request: str, **changes: object) -> "Goal":
-        """Create a new version while preserving this immutable Goal instance."""
+    def revise(self, *, original_request: str | None = None, **changes: object) -> "Goal":
+        """Create a new immutable version while retaining its creation request.
+
+        ``original_request`` remains an accepted keyword temporarily for callers
+        from the earlier contract.  A revision request belongs in runtime audit
+        data, not in the Goal identity, so it intentionally never replaces the
+        first request recorded on this Goal.
+        """
         if "goal_id" in changes or "version" in changes:
             raise ValueError("Goal identity and version are managed by revise()")
         return replace(
             self,
             version=self.version + 1,
-            original_request=original_request,
             **changes,
         )

@@ -5,15 +5,15 @@ from enum import StrEnum
 
 from src.domain import CapabilityResult, Goal, Plan
 
-from .capability_catalog import CAPABILITY_CATALOG
-from .capability_executor import CapabilityExecutor
-from .continuation import ContinuationAction, decide_continuation
-from .execution_context import ExecutionContext
-from .goal_parser import GoalParser, RuntimeContext
-from .planner import CapabilityCatalog, ExistingContext, Planner
-from .plan_validation import validate_plan
-from .step_execution import execute_step
-from .step_resolution import get_next_ready_step
+from .capability.capability_catalog import CAPABILITY_CATALOG
+from .capability.capability_executor import CapabilityExecutor
+from .capability.continuation import ContinuationAction, decide_continuation
+from .capability.execution_context import ExecutionContext
+from .goal_parser import GoalParser, GoalParseStatus, RuntimeContext
+from .planner.planner import CapabilityCatalog, ExistingContext, Planner
+from .planner.plan_validation import validate_plan
+from .capability.step_execution import execute_step
+from .capability.step_resolution import get_next_ready_step
 
 
 class BusinessAgentStatus(StrEnum):
@@ -69,6 +69,12 @@ class BusinessAgent:
                 runtime_context=runtime_context,
                 existing_goal=existing_goal,
             )
+            if parse_result.status is GoalParseStatus.TECHNICAL_FAILURE:
+                return BusinessAgentResponse(
+                    status=BusinessAgentStatus.FAILED,
+                    goal=parse_result.goal,
+                    error=parse_result.error or "Goal parser failed",
+                )
             if parse_result.need_clarification:
                 return BusinessAgentResponse(
                     status=BusinessAgentStatus.CLARIFICATION_REQUIRED,

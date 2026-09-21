@@ -30,7 +30,10 @@ src/application/
 ├─ execution_context.py   M3-T02 保存当前 Goal、Plan、已知事实与按 step_id 记录的 CapabilityResult
 ├─ step_execution.py      M3-T03 将 PlanStep 映射为 CapabilityRequest，执行并记录 CapabilityResult
 ├─ step_resolution.py     M3-T04 根据已有 CapabilityResult 解析首个 Ready Step
-├─ goal_parser.py         自然语言 Goal 解释、可信上下文合并与 Goal 构造
+├─ goal_parser/           统一公共入口、模型语义解释、确定性合并与词汇配置
+│  ├─ __init__.py         稳定的 Goal Parser 导入入口
+│  ├─ goal_parser.py      Goal 创建/修订、澄清门禁与单次格式修复
+│  └─ metric_vocabulary.json  受版本控制的指标词汇快照
 ├─ planner.py             首次规划及 NO_RESULT 后完整 Plan 新版本生成
 ├─ plan_validation.py     Plan 基础校验及成功旧步骤重规划身份校验
 └─ business_agent.py      串联解析、澄清、规划、执行和一次重规划的轻量应用入口
@@ -72,7 +75,7 @@ Opportunity ← Evidence
 
 M1 描述领域对象及其机器可校验不变量；M2-Lite 与 M3-Lite 已通过 BusinessAgent 实现自然语言到 Goal、动态 Plan、Capability handler 执行和一次结果驱动重规划的应用闭环，但仍没有真实业务 Capability、数据持久化或 HTTP API。CapabilityResult 的 `execution_meta.trace_id` 是字符串引用，避免 Domain 依赖 Agent Trace 类型；`rule_result_refs` 统一保存 `RULE_RESULT` Evidence ID，并由后续 Application 在可取得 Evidence 集合时解析类型。
 
-Goal Parser 不把 `RuntimeContext` 发送给模型。模型只返回业务语义 JSON；Application 生成新 Goal ID、管理版本和原始请求，并以 RuntimeContext 覆盖可信 actor/channel。时间只接受用户原文表达，模型提供的起止日期不进入 Goal；产品和需求提及需在用户原文中出现。
+Goal Parser 不把 `RuntimeContext` 发送给模型。模型只返回业务语义及顶层 `KEEP/SET/CLEAR` 指令；Application 生成新 Goal ID、管理版本、保留首次 `original_request`，并以 RuntimeContext 覆盖可信 actor/channel。时间只接受用户原文表达，产品、需求和客群提及需有用户原文或既有 Goal 依据；Metric 通过同包中版本化词汇快照唯一解析，模型 code 不被直接采信。非法 JSON 最多执行一次格式修复；阻塞性 `MissingInformation` 使 BusinessAgent 在 Planner 前返回澄清。
 
 Planner 将 Goal、简单引用 Context 和 Capability Catalog 发送给模型。模型只返回 `step_id`、`capability_id` 与 `depends_on`；Application 负责 Plan 身份和状态。Catalog 不携带固定顺序，已有机会、客户或任务上下文可以直接选择后续能力。
 

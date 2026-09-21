@@ -15,7 +15,7 @@
 
 - 依赖方向为 Application → `src/domain` 和 Application → `src/model`；未来能力执行接入时可形成 Application → `src/agent` → `src/model`。Domain 与 Agent/Model 相互独立，底层 Runtime 不反向依赖智慧经营业务模块。
 - Tool 是可执行的技术/业务接口；Capability 属于上层业务语义，可在未来组合一个或多个 Tool，二者不可混为一谈。
-- Goal Parser 支持新 Goal、已有 Goal 的基础 SET 修改和澄清返回；未实现 CLEAR Patch Framework。模型输出不能决定 Goal ID、版本、原始请求或可信 actor/channel，模型生成的日期会被忽略，产品和需求提及必须逐字存在于用户请求。
+- Goal Parser 以 `src.application.goal_parser` 为统一入口，支持新 Goal 与已有 Goal 的顶层 `KEEP`、`SET`、`CLEAR` 修改。Application 分配 Goal ID/版本、保留首次 `original_request`，并以可信 Runtime Context 注入 actor/channel。阻塞缺失以 `Goal.missing_information` 返回且不会进入 Planner；模型协议失败返回明确技术失败。产品、需求、时间和客群只接受能回指用户原文或既有 Goal 的值；指标 code 只能由版本化词汇配置的唯一命中生成，当前词汇仅含 NBEV。
 - Planner 支持跳过、重复、重排及步骤依赖，并允许一次非法 JSON 格式修复；Plan ID、版本、GoalRef 和状态由 Application 构造。
 - 独立 `validate_plan()` 确定性检查 Catalog 外能力、重复 step_id、未知依赖和依赖环；Planner 在返回 Plan 前调用该函数。
 - BusinessAgent 依次调用 Goal Parser、澄清分支、Planner、Plan Validation 和最小执行循环，对外区分 `COMPLETED`、`CLARIFICATION_REQUIRED`、`STOPPED` 与应用异常 `FAILED`；执行循环直接组合已有函数，不是新的 Agent Loop、Workflow Engine 或状态机。
@@ -29,7 +29,7 @@
 - Capability Catalog 不包含顺序、前后继或步骤编号；五类能力可由后续 Planner 按 Goal 与上下文选择、跳过、重复或重排。
 - 当前没有认证、会话历史、运行持久化、生产级并发治理或真实业务数据接入。
 - 仓库中的合成数据与业务规则已随最近提交移除，不能再以此前的 86→41→12 漏斗、机会推荐或客户结果作为当前事实。
-- 最近验证基线：2026-09-21，收敛后的领域契约、M2-Lite/M3-Lite Application 与 Goal Parser 收敛行为共 84 项 `unittest` 通过；覆盖正常多步执行、一次 Replan、部分 Goal 澄清门禁、阻塞修订版本、CLEAR、无依据字段过滤、非阻塞缺失继续规划、指标词汇来源和单次格式修复。本轮完成 `src`、`tests` 及 `scripts` 字节码编译，未执行真实模型在线验证；此前旧 Goal Parser 协议的三个在线场景不能替代新协议复验，Planner 四个首次规划场景此前在线通过，Replan 仍未在线验证。
+- 最近验证基线：2026-09-21，当前仓库的 19 项 `unittest` 通过，覆盖领域契约、Goal 创建、受治理指标、阻塞澄清门禁、`KEEP/SET/CLEAR`、首次原始请求保留、无依据字段过滤和单次 JSON 格式修复；已完成 `src`、`tests` 字节码编译，未执行真实模型在线验证。
 
 ## 已知限制
 
@@ -46,7 +46,4 @@
 - 运行完整 Python 测试：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v`
 - 运行 Agent Runtime 离线冒烟：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe scripts/smoke_agent_loop.py`
 - 运行模型冒烟：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe scripts/smoke_model.py`
-- 运行 Goal Parser 真实模型冒烟：`.\.venv\Scripts\python.exe scripts/smoke_goal_parser.py`
-- 运行 Planner 真实模型冒烟：`.\.venv\Scripts\python.exe scripts/smoke_planner.py`
-- 运行 BusinessAgent 真实模型冒烟：`.\.venv\Scripts\python.exe scripts/smoke_bussiness_agent.py`
 - 前端开发/构建：进入 `web/` 后执行 `npm run dev` 或 `npm run build`；当前不应假设存在可连接的业务 API。
