@@ -3,7 +3,6 @@ import unittest
 from src.application import CapabilityExecutor
 from src.domain import (
     ActorContext,
-    CapabilityContext,
     CapabilityOutput,
     CapabilityRequest,
     CapabilityResult,
@@ -20,12 +19,10 @@ def capability_request(capability_id: str = "directional_insight") -> Capability
         capability_id=capability_id,
         goal_ref=GoalRef(goal_id="goal_001", version=1),
         plan_ref=PlanRef(plan_id="plan_001", version=1),
-        context=CapabilityContext(
-            actor=ActorContext(
-                actor_id="agent_001",
-                channel_id="individual_insurance",
-                trusted_source="runtime_context",
-            )
+        actor_context=ActorContext(
+            actor_id="agent_001",
+            channel_id="individual_insurance",
+            trusted_source="runtime_context",
         ),
     )
 

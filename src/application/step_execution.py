@@ -4,7 +4,6 @@ from uuid import uuid4
 
 from src.domain import (
     ActorContext,
-    CapabilityContext,
     CapabilityRequest,
     CapabilityResult,
     GoalRef,
@@ -14,6 +13,21 @@ from src.domain import (
 
 from .capability_executor import CapabilityExecutor
 from .execution_context import ExecutionContext
+
+
+def _input_refs(known_context: dict[str, object]) -> tuple[str, ...]:
+    """Keep only typed references from application context in the request envelope."""
+    refs: list[str] = []
+    for key, values in known_context.items():
+        if not key.endswith("_refs") or not isinstance(values, (list, tuple)):
+            continue
+        reference_type = key.removesuffix("_refs")
+        refs.extend(
+            f"{reference_type}:{value.strip()}"
+            for value in values
+            if isinstance(value, str) and value.strip()
+        )
+    return tuple(refs)
 
 
 def build_capability_request(
@@ -33,23 +47,21 @@ def build_capability_request(
             plan_id=context.current_plan.plan_id,
             version=context.current_plan.version,
         ),
-        context=CapabilityContext(
-            actor=ActorContext(
-                actor_id=(
-                    channel_and_actor.actor_id if channel_and_actor is not None else None
-                ),
-                channel_id=(
-                    channel_and_actor.channel_id if channel_and_actor is not None else None
-                ),
-                trusted_source=(
-                    channel_and_actor.context_source
-                    if channel_and_actor is not None
-                    and channel_and_actor.context_source
-                    else "execution_context.goal"
-                ),
+        actor_context=ActorContext(
+            actor_id=(
+                channel_and_actor.actor_id if channel_and_actor is not None else None
             ),
-            attributes=dict(context.known_context),
+            channel_id=(
+                channel_and_actor.channel_id if channel_and_actor is not None else None
+            ),
+            trusted_source=(
+                channel_and_actor.context_source
+                if channel_and_actor is not None
+                and channel_and_actor.context_source
+                else "execution_context.goal"
+            ),
         ),
+        input_refs=_input_refs(context.known_context),
     )
 
 

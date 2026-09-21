@@ -14,43 +14,11 @@ class PlanStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
-class PlanStepStatus(StrEnum):
-    PLANNED = "planned"
-    READY = "ready"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    SKIPPED = "skipped"
-    BLOCKED = "blocked"
-    CANCELLED = "cancelled"
-
-
-class ControlPointType(StrEnum):
-    RULE_CHECK = "rule_check"
-    USER_CONFIRMATION = "user_confirmation"
-
-
-@dataclass(frozen=True, slots=True)
-class ContextRef:
-    reference_type: str
-    reference_id: str
-    description: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class ControlPoint:
-    control_point_id: str
-    control_point_type: ControlPointType
-    reason: str
-
-
 @dataclass(frozen=True, slots=True)
 class PlanStep:
     step_id: str
     capability_id: str
-    status: PlanStepStatus = PlanStepStatus.PLANNED
     depends_on: tuple[str, ...] = ()
-    context_refs: tuple[ContextRef, ...] = ()
-    control_points: tuple[ControlPoint, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.step_id or not self.capability_id:

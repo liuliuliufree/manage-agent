@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum
-from typing import Any, Mapping
+from typing import Any
 
 
 class EvidenceType(StrEnum):
@@ -40,30 +40,23 @@ class EffectivePeriod:
 
 
 @dataclass(frozen=True, slots=True)
-class EvidenceQuality:
-    confidence: float | None = None
-    completeness: float | None = None
-    note: str | None = None
-
-    def __post_init__(self) -> None:
-        for name in ("confidence", "completeness"):
-            value = getattr(self, name)
-            if value is not None and not 0 <= value <= 1:
-                raise ValueError(f"Evidence quality {name} must be between 0 and 1")
-
-
-@dataclass(frozen=True, slots=True)
 class Evidence:
     evidence_id: str
     evidence_type: EvidenceType
     summary: str
     source: EvidenceSource
-    payload: Mapping[str, Any] | None = None
+    subject_ref: str | None = None
+    field: str | None = None
+    value: Any | None = None
+    observed_at: datetime | None = None
     effective_period: EffectivePeriod | None = None
-    quality: EvidenceQuality | None = None
+    confidence: float | None = None
+    limitations: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.evidence_id:
             raise ValueError("evidence_id is required")
         if not self.summary.strip():
             raise ValueError("Evidence summary is required")
+        if self.confidence is not None and not 0 <= self.confidence <= 1:
+            raise ValueError("Evidence confidence must be between 0 and 1")

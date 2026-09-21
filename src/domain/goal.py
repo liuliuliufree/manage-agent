@@ -59,13 +59,6 @@ class Constraint:
 
 
 @dataclass(frozen=True, slots=True)
-class SuccessCriterion:
-    description: str
-    metric: Metric | None = None
-    target: Target | None = None
-
-
-@dataclass(frozen=True, slots=True)
 class MissingInformation:
     field: str
     reason: str
@@ -95,7 +88,6 @@ class Goal:
     product_or_need_context: ProductOrNeedContext | None = None
     channel_and_actor: ChannelAndActor | None = None
     constraints: tuple[Constraint, ...] = ()
-    success_criteria: tuple[SuccessCriterion, ...] = ()
     missing_information: tuple[MissingInformation, ...] = ()
     assumptions: tuple[Assumption, ...] = ()
 

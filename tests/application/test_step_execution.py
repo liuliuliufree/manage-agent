@@ -62,14 +62,10 @@ class StepExecutionTests(unittest.TestCase):
         self.assertEqual(request.goal_ref, GoalRef(goal_id="goal_001", version=2))
         self.assertEqual(request.plan_ref.plan_id, "plan_001")
         self.assertEqual(request.plan_ref.version, 3)
-        self.assertEqual(request.context.actor.actor_id, "agent_001")
-        self.assertEqual(request.context.actor.channel_id, "individual_insurance")
-        self.assertEqual(request.context.actor.trusted_source, "runtime_context")
-        self.assertEqual(
-            request.context.attributes,
-            {"customer_refs": ["customer_001"]},
-        )
-        self.assertIsNot(request.context.attributes, context.known_context)
+        self.assertEqual(request.actor_context.actor_id, "agent_001")
+        self.assertEqual(request.actor_context.channel_id, "individual_insurance")
+        self.assertEqual(request.actor_context.trusted_source, "runtime_context")
+        self.assertEqual(request.input_refs, ("customer:customer_001",))
 
     def test_execute_step_dispatches_request_and_records_success(self) -> None:
         step, context = execution_context()

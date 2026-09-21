@@ -6,7 +6,6 @@ from src.domain import (
     ActorContext,
     Assumption,
     AudienceScope,
-    CapabilityContext,
     CapabilityError,
     CapabilityRequest,
     CapabilityResult,
@@ -20,19 +19,15 @@ from src.domain import (
     EvidenceSource,
     EvidenceType,
     Goal,
-    GoalLink,
     GoalRef,
     Metric,
     MissingInformation,
     ObjectScope,
     Opportunity,
-    OpportunityPriority,
     Plan,
     PlanStatus,
     PlanStep,
-    PriorityFactor,
     ProductOrNeedContext,
-    SuccessCriterion,
     Target,
 )
 
@@ -48,17 +43,11 @@ def performance_goal() -> Goal:
         audience_scope=AudienceScope("manageable_customers"),
         product_or_need_context=ProductOrNeedContext(products=("Product X", "Product Y")),
         channel_and_actor=ChannelAndActor("individual", "agent-1", "session"),
-        success_criteria=(
-            SuccessCriterion("NBEV 达到 500 万"),
-        ),
     )
 
 
-def context() -> CapabilityContext:
-    return CapabilityContext(
-        actor=ActorContext("agent-1", "individual", "authenticated_session"),
-        object_scope=ObjectScope("customer", ("customer-wang",)),
-    )
+def actor_context() -> ActorContext:
+    return ActorContext("agent-1", "individual", "authenticated_session")
 
 
 class GoalAndEvidenceContractTests(unittest.TestCase):
@@ -107,33 +96,76 @@ class GoalAndEvidenceContractTests(unittest.TestCase):
         self.assertEqual(evidence.source.source_id, "crm")
 
     def test_model_signal_remains_a_distinct_evidence_type(self) -> None:
-        signal = Evidence("ev-model", EvidenceType.MODEL_SIGNAL, "需求评分 0.82", EvidenceSource("need-model", "model", "2026.1"))
+        signal = Evidence(
+            "ev-model",
+            EvidenceType.MODEL_SIGNAL,
+            "需求评分 0.82",
+            EvidenceSource("need-model", "model", "2026.1"),
+            subject_ref="customer-wang",
+            field="need_score",
+            value=0.82,
+            confidence=0.9,
+            limitations=("仅用于需求排序",),
+        )
         self.assertIsNot(signal.evidence_type, EvidenceType.CUSTOMER_FACT)
+        self.assertEqual(signal.value, 0.82)
         self.assertFalse(hasattr(EvidenceType, "AGENT_JUDGEMENT"))
+
+    def test_evidence_rejects_invalid_confidence(self) -> None:
+        with self.assertRaises(ValueError):
+            Evidence(
+                "ev-model",
+                EvidenceType.MODEL_SIGNAL,
+                "需求评分",
+                EvidenceSource("need-model", "model"),
+                confidence=1.1,
+            )
 
 
 class OpportunityAndCapabilityContractTests(unittest.TestCase):
     def test_opportunity_requires_evidence(self) -> None:
         with self.assertRaises(ValueError):
-            Opportunity("opp-1", GoalLink("goal-1", 1), "need_gap", "存在经营问题", ())
+            Opportunity("opp-1", GoalRef("goal-1", 1), "need_gap", "存在经营问题", ())
 
     def test_evidence_roles_can_coexist(self) -> None:
         opportunity = Opportunity(
-            "opp-1", GoalLink("goal-1", 1), "long_term_planning_gap", "长期安排仍有讨论空间",
+            "opp-1", GoalRef("goal-1", 1), "long_term_planning_gap", "长期安排仍有讨论空间",
             (
                 EvidenceLink("support", EvidenceRole.SUPPORTS),
                 EvidenceLink("limit", EvidenceRole.LIMITS),
                 EvidenceLink("contradiction", EvidenceRole.CONTRADICTS),
             ),
-            priority=OpportunityPriority("high", factors=(PriorityFactor("need", "需求信号明确"),)),
+            priority="high",
+            priority_reason="需求信号明确",
         )
         self.assertEqual({link.role for link in opportunity.evidence_links}, set(EvidenceRole))
 
+    def test_opportunity_priority_requires_a_reason(self) -> None:
+        with self.assertRaises(ValueError):
+            Opportunity(
+                "opp-1",
+                GoalRef("goal-1", 1),
+                "need_gap",
+                "存在经营问题",
+                (EvidenceLink("support", EvidenceRole.SUPPORTS),),
+                priority="high",
+            )
+
     def test_capability_request_allows_different_capabilities(self) -> None:
         goal_ref = GoalRef("goal-1", 1)
-        strategy = CapabilityRequest("request-1", "strategy_generation", goal_ref, context())
-        insight = CapabilityRequest("request-2", "directional_insight", goal_ref, context())
+        strategy = CapabilityRequest(
+            "request-1",
+            "strategy_generation",
+            goal_ref,
+            actor_context(),
+            object_scope=ObjectScope("customer", ("customer-wang",)),
+            input_refs=("opportunity:opp-1",),
+        )
+        insight = CapabilityRequest(
+            "request-2", "directional_insight", goal_ref, actor_context()
+        )
         self.assertNotEqual(strategy.capability_id, insight.capability_id)
+        self.assertEqual(strategy.input_refs, ("opportunity:opp-1",))
 
     def test_capability_result_status_invariants(self) -> None:
         error = CapabilityError(ErrorCategory.TIMEOUT, "upstream_timeout", "规则服务超时", True)

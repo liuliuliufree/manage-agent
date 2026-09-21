@@ -4,11 +4,11 @@
 
 ```text
 src/domain/
-├─ goal.py          版本化经营目标、缺失信息与假设
-├─ evidence.py      带来源、版本与有效期的最小证据
-├─ opportunity.py   关联 Goal/Evidence 的经营机会判断
-├─ capability.py    稳定 Capability 请求、结果与状态契约
-├─ plan.py          Capability Plan 与轻量步骤依赖校验
+├─ goal.py          版本化经营目标、缺失信息与假设，不重复保存量化完成条件
+├─ evidence.py      带最小字段值、来源、时间、可选置信度与限制的证据
+├─ opportunity.py   关联 GoalRef/EvidenceLink 的最小经营机会判断
+├─ capability.py    引用式 Capability 请求、结果与状态契约
+├─ plan.py          仅含能力选择与依赖的 Plan 及轻量依赖校验
 └─ refs.py          Goal/Plan 的版本化引用
 
 src/agent/
@@ -86,7 +86,7 @@ CapabilityExecutor 是 Application 层的最小执行分发器，与 Planner 使
 
 ExecutionContext 是 Application 层最小可变运行状态，仅持有当前 `Goal`、当前 `Plan`、普通字典 `known_context` 和 `step_id -> CapabilityResult` 映射。`record_result()` 只保存或替换指定步骤的最新结果；已知事实与执行历史保持分离，输出解释、上下文合并和 Plan 历史均未实现。
 
-`build_capability_request()` 是 M3-T03 的普通映射函数：从 PlanStep、ExecutionContext 中取 capability_id、当前 Goal/Plan 版本、可信 actor/channel 来源和已知上下文，构造 M1 既有的 CapabilityRequest。`execute_step()` 顺序调用该函数、CapabilityExecutor 和 `ExecutionContext.record_result()`；成功与失败结果都会记录。BusinessAgent 驱动该执行链路，但这两个函数本身不负责步骤就绪判断、依赖调度、输出合并或继续策略。
+`build_capability_request()` 是 M3-T03 的普通映射函数：从 PlanStep、ExecutionContext 中取 capability_id、当前 Goal/Plan 版本和可信 actor/channel 来源，并只把 `known_context` 中 `*_refs` 字符串集合转换为带类型前缀的 `input_refs`，构造收敛后的 CapabilityRequest。它不再通过开放式 CapabilityContext 透传任意业务属性。`execute_step()` 顺序调用该函数、CapabilityExecutor 和 `ExecutionContext.record_result()`；成功与失败结果都会记录。BusinessAgent 驱动该执行链路，但这两个函数本身不负责步骤就绪判断、依赖调度、输出合并或继续策略。
 
 `is_step_ready()` 与 `get_next_ready_step()` 是 M3-T04 的两个无状态函数。前者把“未执行且所有依赖结果为 `SUCCESS` 或 `PARTIAL_SUCCESS`”定义为 Ready，后者按 Plan 中的出现顺序返回第一个 Ready Step；`NO_RESULT`、`FAILED`、`BLOCKED` 等结果不会释放后继依赖。当前不持久化第二套 Step Runtime Status，也不区分“Plan 已完成”和“Plan 已卡住”；这些属于后续继续策略，而不是 Ready Step 解析职责。
 
@@ -95,9 +95,12 @@ ExecutionContext 是 Application 层最小可变运行状态，仅持有当前 `
 ## M1 已强制的契约
 
 - Goal、Plan 版本不低于 1，`revise()` 创建新版本而不修改旧实例。
-- Evidence 必须带非空 Source；EvidenceType 不包含 Agent judgement。
-- 正式 Opportunity 必须指向具体 Goal version 且至少保留一条 EvidenceLink；优先级需要解释因素。
+- Evidence 必须带非空 Source；EvidenceType 不包含 Agent judgement；结构化内容使用最小 `subject_ref/field/value`，不提供开放式 payload。
+- 正式 Opportunity 必须以 `GoalRef` 指向具体 Goal version 且至少保留一条 EvidenceLink；可选轻量优先级与理由必须同时出现。
 - Capability 状态语义区分无结果、业务规则阻断和运行失败；BLOCKED 要求规则结果引用。
-- PlanStep 只选择 Capability，可重复、可省略；依赖必须存在且不能成环。
+- CapabilityRequest 明确携带 actor、可选对象范围、统一 `input_refs` 和可选 `as_of`，不提供宽泛 business context。
+- PlanStep 只选择 Capability 并表达依赖，不保存第二套运行状态或模型生成的控制点；能力可重复、可省略，依赖必须存在且不能成环。
+
+当前核心契约按 M2-Lite 至近期 M3/M4 的真实消费者收敛。非量化完成条件、CandidateCriteria、Opportunity 有效性/失效条件以及写操作控制策略分别在 Tracking、Targeting 和真实写执行阶段出现需求后扩展；写操作控制的可信来源应是 Capability 元数据或执行策略，而不是 Planner 文本。
 
 产品、客户、规则与 Trace 的事实来源，以及 Opportunity/Capability 语义是否被错误设计为固定 Demo 工作流，仍由后续实现与架构评审保证。

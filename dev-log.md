@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- 2026-09-21 将 `doc/roadmap/M1/` 的领域边界、Goal、Evidence、Opportunity、Capability、状态、Plan 和契约测试设计收敛到唯一整体文档 `M1.md`；删除已被合并且包含旧字段方案的 T01～T08 分篇，避免与当前代码和收敛决策形成双重事实源。整体文档新增“未来可新增的契约细节”和演进评审清单，分别说明非量化完成条件、证据冲突、圈客条件、机会有效性、写操作策略、类型化 Capability 输入、持久运行状态及新领域产物的真实触发条件和归属边界。本次仅调整文档，未修改代码行为或验证基线。
+- 2026-09-21 按已确认的近期消费边界收敛 Domain Contract：Goal 删除与量化 Target 重复且当前无消费者的 `success_criteria`；Evidence 删除开放式 `payload` 和混合质量对象，改为最小 `subject_ref/field/value`、观测/有效时间及可选置信度和限制；Opportunity 复用 `GoalRef`，删除目标贡献、适用条件、圈客逻辑、有效性和下一步提示等后续阶段字段，优先级收敛为可选值与必配理由。
+- CapabilityRequest 删除宽泛 `CapabilityContext` 和未消费的请求约束，显式保留 actor、对象范围、统一 `input_refs` 与 `as_of`；Application 只把 `known_context` 中 `*_refs` 字符串引用映射入请求，不再透传任意属性。PlanStep 删除未使用的运行状态、上下文引用和模型控制点，只保留 capability 选择与依赖；写操作控制继续作为后续 Capability 元数据/执行策略职责。
+- 同步领域和单步执行测试，新增 Evidence 置信度、轻量 Opportunity 优先级解释及引用式 CapabilityRequest 覆盖；2026-09-21 完整离线测试 76 项通过，并完成 `src`、`tests`、`scripts` 字节码编译。本轮未执行真实模型在线验证。
+
 - 2026-09-20 完成 M3-T07 最小执行闭环：BusinessAgent 在 Goal Parser 与 Planner 之后创建 ExecutionContext，直接组合 Ready Step 解析、CapabilityExecutor、单步执行、Continuation Policy 和 `Planner.replan()`；成功自动推进，`NO_RESULT` 最多触发一次 Plan 新版本，`NEED_INFORMATION` 返回澄清，`BLOCKED/FAILED` CapabilityResult 返回停止。响应保留最终 Plan、ExecutionContext 和最近结果；未新增 ExecutionEngine、Retry、Fallback、Resume、并行调度或持久化。
 - 新增 5 项 BusinessAgent 执行行为测试，覆盖正常三步且不重规划、`NO_RESULT → Plan V2` 且成功步骤不重跑、缺信息询问、规则阻断停止和技术失败不重试；既有 8 项动态规划行为测试接入 Fake Capability 后继续验证单能力和已有上下文跳步。完整离线测试共 74 项通过，并完成 `src`、`tests` 及 BusinessAgent 冒烟脚本字节码编译；真实模型 Replan 本轮未执行。
 

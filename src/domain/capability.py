@@ -61,27 +61,15 @@ class ActorContext:
 
 
 @dataclass(frozen=True, slots=True)
-class CapabilityContext:
-    actor: ActorContext
-    object_scope: ObjectScope | None = None
-    evidence_refs: tuple[str, ...] = ()
-    attributes: Mapping[str, Any] | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class CapabilityConstraint:
-    code: str
-    description: str
-
-
-@dataclass(frozen=True, slots=True)
 class CapabilityRequest:
     request_id: str
     capability_id: str
     goal_ref: GoalRef
-    context: CapabilityContext
+    actor_context: ActorContext
     plan_ref: PlanRef | None = None
-    constraints: tuple[CapabilityConstraint, ...] = ()
+    object_scope: ObjectScope | None = None
+    input_refs: tuple[str, ...] = ()
+    as_of: datetime | None = None
 
     def __post_init__(self) -> None:
         if not self.request_id:
