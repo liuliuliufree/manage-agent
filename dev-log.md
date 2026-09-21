@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 2026-09-21 确认 `doc/design/2026-09-21-planner-convergence.md`：首次规划采用模型草案与正式 Plan 分离、Application 分配正式 step ID、统一规划结果、受控 Planning Context 和 Application Capability View；明确首版可执行性校验边界、一次可观察的受限语义重试、无需行动不创建空 Plan、生命周期由 Application 执行协调职责管理，以及先等价拆分 Planner 内部结构再引入行为变化。本次仅确认设计，未修改代码、当前实现事实或验证基线。
+
 - 2026-09-21 将 `doc/roadmap/M1/` 的领域边界、Goal、Evidence、Opportunity、Capability、状态、Plan 和契约测试设计收敛到唯一整体文档 `M1.md`；删除已被合并且包含旧字段方案的 T01～T08 分篇，避免与当前代码和收敛决策形成双重事实源。整体文档新增“未来可新增的契约细节”和演进评审清单，分别说明非量化完成条件、证据冲突、圈客条件、机会有效性、写操作策略、类型化 Capability 输入、持久运行状态及新领域产物的真实触发条件和归属边界。本次仅调整文档，未修改代码行为或验证基线。
 - 2026-09-21 按已确认的近期消费边界收敛 Domain Contract：Goal 删除与量化 Target 重复且当前无消费者的 `success_criteria`；Evidence 删除开放式 `payload` 和混合质量对象，改为最小 `subject_ref/field/value`、观测/有效时间及可选置信度和限制；Opportunity 复用 `GoalRef`，删除目标贡献、适用条件、圈客逻辑、有效性和下一步提示等后续阶段字段，优先级收敛为可选值与必配理由。
 - CapabilityRequest 删除宽泛 `CapabilityContext` 和未消费的请求约束，显式保留 actor、对象范围、统一 `input_refs` 与 `as_of`；Application 只把 `known_context` 中 `*_refs` 字符串引用映射入请求，不再透传任意属性。PlanStep 删除未使用的运行状态、上下文引用和模型控制点，只保留 capability 选择与依赖；写操作控制继续作为后续 Capability 元数据/执行策略职责。
