@@ -13,7 +13,8 @@
 - 只有 SUCCESS 会发布产物并释放依赖。PARTIAL_SUCCESS、NO_RESULT、BLOCKED 和 FAILED 保留真实结果后停止；NEED_INFORMATION 或执行前缺输入返回结构化澄清。缺输入、歧义、对象不存在、输出协议错误和重复执行不会调用或继续下游 handler。
 - Demo 执行入口不再包含 `Planner.replan()`、Plan V2、重规划计数或换版分支；Planner 也不再公开 Replan 方法。用户重新提交完整请求时必须创建新 Goal/Plan/ExecutionContext/ArtifactStore。
 - `scripts/smoke_demo_v1.py` 提供两个离线端到端合成冒烟：完整开门红目标走洞察、圈客、策略、确定性门禁和模拟任务；已知“王女士（虚构）”通过可信初始 customer_set 跳过前置能力，直接生成策略并形成模拟任务。脚本默认按顺序输出 UTF-8 JSONL 全流程日志，包括 Parser/Planner 模型输入输出、Goal/Plan、Capability 请求与结果、对象读写、规则裁决、发布索引和最终模拟任务；不输出密钥或隐藏推理。所有经营对象、规则和 handler 均明确为合成数据。
-- `data/client/` 与 `data/product/` 已保存按 M4 设计生成的 50 位客户、115 条行为、主题/素材字典、产品原文索引、manifest 和 README；`scripts/validate_insight_mock_data.py` 可用标准库从实际文件计算统计和 SHA-256，并校验引用、配额、时间、去重口径及独立反例。该数据尚未接入 Capability、Tool、API 或前端。
+- `data/client/` 与 `data/product/` 已保存按 M4 设计生成的 50 位客户、115 条行为、主题/素材字典、产品原文索引、manifest 和 README；`scripts/validate_insight_mock_data.py` 可用标准库从实际文件计算统计和 SHA-256，并校验引用、配额、时间、去重口径及独立反例。
+- `src/application/insight_tools.py` 提供三个可独立装配的只读 `Tool`：`search_knowledge`、`read_knowledge`、`aggregate_records`。它们从受信配置绑定的本地 Markdown/Mock 快照读取或计算，使用白名单字段、别名精确解析、文件/manifest 指纹、左闭右开时间窗、同事件筛选、分组独立客户去重和显式分母；不接入 Capability、Planner、API 或前端，不生成 Opportunity、推荐、预测 NBEV 或客户名单。
 - `web/` 仍保留旧 React/Vite 对话界面代码，但仓库没有对应的当前业务 HTTP API；前端不属于本轮交付。
 
 ## 核心契约与边界
@@ -31,7 +32,7 @@
 
 ## 已知限制
 
-- 当前没有真实定向洞察、圈客、策略、产品知识接入、客户数据接入、客户归属/渠道规则或任务分发能力。仓库仅有 M4 合成快照和用户提供的 Markdown 产品原文索引；它们未形成洞察能力。测试和冒烟使用合成 handler，只验证协议、门禁与对象流转。
+- 当前没有真实定向洞察、圈客、策略、产品知识接入、客户数据接入、客户归属/渠道规则或任务分发能力。三个 M4 只读工具只提供原文检索/读取和受控统计，尚未形成洞察 Capability；测试使用合成快照，只验证工具协议、来源校验和统计口径。
 - 当前没有 HTTP API、运行持久化、认证、会话恢复、并行调度、外部事务或跨 Goal/跨 Plan 产物复用。
 - Parser 受治理指标词汇当前仅包含 NBEV；产品名称只作为用户原文保存，不验证真实在售或适配性。金额解析不支持中文数字、区间、算式、负数、零或 at_most 等比较意图。
 - Planner 不在规划期证明全部输入可达；缺输入由执行前门禁确定性阻止。模型是否能在真实输入下稳定选择最少合理能力仍需在线评测。
@@ -45,6 +46,7 @@
 - 2026-09-21：`src`、`tests`、`scripts` 字节码编译通过。
 - 2026-09-22：`scripts/smoke_demo_v1.py` 两个端到端合成样例均完成，均只生成 Plan V1，并输出可读取中文的结构化全流程日志及 `execution_mode=simulated` 的个险模拟任务。
 - 2026-09-22：M4 合成快照校验通过：50 位客户、115 条行为，主窗口/历史事件 105/10，近期活跃客户 40，独立反例夹具 7 项通过；未执行 M4 洞察能力或完整 Demo 验证。
+- 2026-09-22：三个 M4 只读工具离线测试 5 项通过，覆盖知识别名与原文指纹、非法参数/路径边界、客户年龄分母、同事件筛选、主题去重和源数据变体；未执行 M4 洞察 Capability 或完整 Demo 验证。
 - 2026-09-21：真实模型在线验证未完成，原因见已知限制。
 
 ## 任务入口

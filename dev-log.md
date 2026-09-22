@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 2026-09-22 实现 `src/application/insight_tools.py` 的三个通用只读 Tool：`search_knowledge` 按产品目录正式名/已登记别名检索 Markdown 章节，`read_knowledge` 按文档指纹读取精确原文行区间，`aggregate_records` 在 `customer_profiles`/`customer_behaviors` 上执行白名单字段、时间窗、同事件筛选、分组和独立客户统计。复用 `src/agent/tool.py` 的 `Tool`/JSON Schema 校验，来源保留 dataset/version/manifest 或文档指纹；拒绝路径、SQL、代码和任意字段，不生成机会、推荐、名单或预测。新增 5 项离线测试覆盖别名、原文版本、非法参数、分母/去重/同事件语义及源数据变体；本轮未接入洞察 Capability、Planner、Replan、API 或前端，也未声称完整 M4 完成。
+
 - 2026-09-22 交付 M4 数据快照至 `data/client/` 与 `data/product/`：按已确认设计生成 50 位虚构个险客户和 115 条行为，附主题/素材字典、仅索引用户提供 Markdown 原文的产品目录、manifest、README 及标准库校验脚本。校验从实际文件计算统计和 SHA-256，验证年龄置换、行为配额、主窗口/历史分区、引用、statement_kind 文本一致性、渠道/代理人范围、去重口径和 7 项独立反例；本轮未开发 Capability、Tool、API、前端或 Replan，也未声称 M4 洞察能力已实现。
 
 - 2026-09-22 扩展 `scripts/smoke_demo_v1.py` 的可观察性：默认输出带 case、sequence 和 event 的 UTF-8 JSONL 全流程日志，覆盖可信运行上下文、初始产物、Parser/Planner 模型请求与响应、结构化 Goal/Plan、每个 CapabilityRequest/Result、实际 ArtifactStore 读写、确定性渠道/归属规则裁决、发布索引和最终模拟任务；不打印密钥、SDK 配置或隐藏推理。重新执行两个合成样例均完成，完整目标共 28 个事件，已知客户目标共 21 个事件，中文输出正常。

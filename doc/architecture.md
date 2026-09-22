@@ -41,6 +41,7 @@ src/application/
 │  ├─ step_execution.py         请求构造、结果校验和 SUCCESS 发布
 │  ├─ step_resolution.py        仅 SUCCESS 释放依赖
 │  └─ continuation.py           完成、澄清或停止决策
+├─ insight_tools.py             受控知识检索、原文读取和客户/行为统计 Tool
 └─ business_agent.py            Parser → Planner → 单 Plan 执行入口
 
 scripts/
@@ -63,6 +64,9 @@ data/product/
 
 scripts/validate_insight_mock_data.py
 └─ 标准库离线校验、实际统计、指纹和独立反例夹具
+
+tests/application/test_insight_tools.py
+└─ 三个只读 Tool 的离线协议、口径、指纹和源数据变体验收
 ```
 
 ## 依赖方向
@@ -76,6 +80,8 @@ Agent Runtime ──→ Model
 ```
 
 Domain 不导入 Application、Agent 或 Model。通用 Agent Runtime 不感知 Goal、Plan、客户、产品或 NBEV。当前 BusinessAgent 直接组合 Goal Parser、Planner 和 Application Capability 执行组件，不引入第二个 Agent Loop、Workflow Engine、Registry 或新框架。
+
+`application.insight_tools` 通过 `InsightToolConfig` 绑定应用拥有的数据根目录，再用既有 `agent.tool.Tool` 暴露三个同步 handler。handler 在直接调用时也复用 `Tool.validate_arguments`；模型输入不能提供路径、SQL、代码、actor 或 channel。知识工具只允许 product catalog 登记的 Markdown，并核对目录指纹；统计工具只允许 `customer_profiles`/`customer_behaviors` 及固定字段、度量和年龄分组。工具返回普通结果 envelope 与来源，不创建 Domain Evidence/Opportunity，也不把结果注册为 Capability 产物。
 
 Capability Catalog 与 Executor handler 映射保持分离：Catalog 描述 Planner 能看见的能力，Executor 表示本次装配中可调用的实现。BusinessAgent 取二者交集并保持 Catalog 原顺序；IO 元数据通过独立普通 Mapping 注入。
 
@@ -136,6 +142,6 @@ PARTIAL_SUCCESS、NO_RESULT、BLOCKED、FAILED 和 NEED_INFORMATION 均不发布
 
 当前生产代码只提供通用编排、对象传递和门禁机制，没有真实经营 handler。`scripts/smoke_demo_v1.py` 的机会、客户、策略、规则和任务均为虚构测试数据；模拟任务明确保存 `execution_mode=simulated`。它证明对象内容贯穿下游以及个险/当前代理人门禁可被执行框架尊重，不证明真实业务规则正确。
 
-`data/client/` 与 `data/product/` 是独立的数据快照，校验脚本直接读取文件计算结果；当前没有任何 Capability/Tool/API/前端消费它，也没有预制 Opportunity、推荐名单、评分或 NBEV 预测。
+`data/client/` 与 `data/product/` 是独立的数据快照，校验脚本直接读取文件计算结果；三个 M4 只读 Tool 已消费它，但仍未接入 Capability、Planner、API 或前端，也没有预制 Opportunity、推荐名单、评分或 NBEV 预测。统计结果从实际文件计算，返回 dataset/version/manifest 指纹和查询口径；变更中的数据文件必须同步更新 manifest 指纹，否则返回来源错误，产品原文指纹变化返回 `SOURCE_CHANGED`。
 
 仓库当前没有与该 Application 链路匹配的 HTTP API。`web/` 是保留的旧前端代码，不在本轮架构数据流中。

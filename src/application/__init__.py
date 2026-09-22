@@ -32,6 +32,7 @@ from .planner.planner import (
 from .planner.plan_validation import validate_plan
 from .capability.step_execution import build_capability_request, execute_step
 from .capability.step_resolution import get_next_ready_step, is_step_ready
+from .insight_tools import InsightToolConfig, build_insight_tools
 
 __all__ = [
     "CAPABILITY_CATALOG",
@@ -66,4 +67,6 @@ __all__ = [
     "normalize_initial_refs",
     "resolve_input_refs",
     "validate_plan",
+    "InsightToolConfig",
+    "build_insight_tools",
 ]
