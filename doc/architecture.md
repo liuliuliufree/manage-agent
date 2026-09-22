@@ -47,6 +47,24 @@ scripts/
 └─ smoke_demo_v1.py             两个合成端到端 Demo V1 冒烟
 ```
 
+M4 数据快照：
+
+```text
+data/client/
+├─ customers.jsonl              客户基础资料
+├─ behaviors.jsonl              行为事件
+├─ topics.json / materials.json 主题与素材元数据
+├─ manifest.json / README.md    快照元数据、指纹与口径说明
+└─ （仅由脚本读取，不是当前业务运行时数据源）
+
+data/product/
+├─ product_catalog.json          用户提供 Markdown 产品原文索引
+└─ *.md                          用户提供产品原文
+
+scripts/validate_insight_mock_data.py
+└─ 标准库离线校验、实际统计、指纹和独立反例夹具
+```
+
 ## 依赖方向
 
 ```text
@@ -117,5 +135,7 @@ PARTIAL_SUCCESS、NO_RESULT、BLOCKED、FAILED 和 NEED_INFORMATION 均不发布
 ## 当前业务与交互边界
 
 当前生产代码只提供通用编排、对象传递和门禁机制，没有真实经营 handler。`scripts/smoke_demo_v1.py` 的机会、客户、策略、规则和任务均为虚构测试数据；模拟任务明确保存 `execution_mode=simulated`。它证明对象内容贯穿下游以及个险/当前代理人门禁可被执行框架尊重，不证明真实业务规则正确。
+
+`data/client/` 与 `data/product/` 是独立的数据快照，校验脚本直接读取文件计算结果；当前没有任何 Capability/Tool/API/前端消费它，也没有预制 Opportunity、推荐名单、评分或 NBEV 预测。
 
 仓库当前没有与该 Application 链路匹配的 HTTP API。`web/` 是保留的旧前端代码，不在本轮架构数据流中。

@@ -1,0 +1,37 @@
+{
+  "dataset_id": "insight_demo_v1",
+  "version": "1.0",
+  "topics": [
+    {
+      "topic_code": "retirement_income",
+      "display_name": "退休收入安排",
+      "neutral_definition": "讨论退休后补充收入、持续领取等问题；不等同于已存在养老金缺口或产品适配结论。",
+      "synthetic": true
+    },
+    {
+      "topic_code": "family_protection",
+      "display_name": "家庭长期保障",
+      "neutral_definition": "讨论家庭成员保障、受益人安排等问题；不等同于已存在保障缺口或传承需求。",
+      "synthetic": true
+    },
+    {
+      "topic_code": "liquidity_planning",
+      "display_name": "资金使用安排",
+      "neutral_definition": "讨论临时用钱、长期安排与短期备用金；不等同于特定资产规模或可承受锁定期限。",
+      "synthetic": true
+    },
+    {
+      "topic_code": "dividend_understanding",
+      "display_name": "分红与不确定性",
+      "neutral_definition": "讨论分红是否确定、没有分红时如何理解；不等同于分红有保证或风险承受意愿。",
+      "synthetic": true
+    },
+    {
+      "topic_code": "health_protection",
+      "display_name": "医疗与健康保障",
+      "neutral_definition": "讨论医疗费用与健康保障；不等同于本次主推产品一定覆盖该主题。",
+      "synthetic": true
+    }
+  ]
+}
+

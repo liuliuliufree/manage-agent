@@ -1,0 +1,112 @@
+{
+  "dataset_id": "insight_demo_v1",
+  "version": "1.0",
+  "materials": [
+    {
+      "material_id": "ARTICLE_T1_01",
+      "kind": "article",
+      "topic_code": "retirement_income",
+      "title": "退休后收入来源有哪些",
+      "synthetic": true
+    },
+    {
+      "material_id": "ARTICLE_T1_02",
+      "kind": "article",
+      "topic_code": "retirement_income",
+      "title": "退休收入安排中的常见问题",
+      "synthetic": true
+    },
+    {
+      "material_id": "ACTIVITY_T1_01",
+      "kind": "activity",
+      "topic_code": "retirement_income",
+      "title": "退休收入安排主题分享",
+      "synthetic": true
+    },
+    {
+      "material_id": "ARTICLE_T2_01",
+      "kind": "article",
+      "topic_code": "family_protection",
+      "title": "家庭保障沟通需要了解什么",
+      "synthetic": true
+    },
+    {
+      "material_id": "ARTICLE_T2_02",
+      "kind": "article",
+      "topic_code": "family_protection",
+      "title": "家庭长期保障与受益人安排",
+      "synthetic": true
+    },
+    {
+      "material_id": "ACTIVITY_T2_01",
+      "kind": "activity",
+      "topic_code": "family_protection",
+      "title": "家庭长期保障主题分享",
+      "synthetic": true
+    },
+    {
+      "material_id": "ARTICLE_T3_01",
+      "kind": "article",
+      "topic_code": "liquidity_planning",
+      "title": "短期备用金与长期安排",
+      "synthetic": true
+    },
+    {
+      "material_id": "ARTICLE_T3_02",
+      "kind": "article",
+      "topic_code": "liquidity_planning",
+      "title": "临时用钱与长期安排的区别",
+      "synthetic": true
+    },
+    {
+      "material_id": "ACTIVITY_T3_01",
+      "kind": "activity",
+      "topic_code": "liquidity_planning",
+      "title": "资金使用安排主题分享",
+      "synthetic": true
+    },
+    {
+      "material_id": "ARTICLE_T4_01",
+      "kind": "article",
+      "topic_code": "dividend_understanding",
+      "title": "分红不确定性问答",
+      "synthetic": true
+    },
+    {
+      "material_id": "ARTICLE_T4_02",
+      "kind": "article",
+      "topic_code": "dividend_understanding",
+      "title": "如何理解没有红利分配",
+      "synthetic": true
+    },
+    {
+      "material_id": "ACTIVITY_T4_01",
+      "kind": "activity",
+      "topic_code": "dividend_understanding",
+      "title": "分红与不确定性主题分享",
+      "synthetic": true
+    },
+    {
+      "material_id": "ARTICLE_T5_01",
+      "kind": "article",
+      "topic_code": "health_protection",
+      "title": "医疗费用与保障基础",
+      "synthetic": true
+    },
+    {
+      "material_id": "ARTICLE_T5_02",
+      "kind": "article",
+      "topic_code": "health_protection",
+      "title": "健康保障沟通前的基础问题",
+      "synthetic": true
+    },
+    {
+      "material_id": "ACTIVITY_T5_01",
+      "kind": "activity",
+      "topic_code": "health_protection",
+      "title": "医疗与健康保障主题分享",
+      "synthetic": true
+    }
+  ]
+}
+

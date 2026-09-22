@@ -1,0 +1,29 @@
+{
+  "dataset_id": "insight_demo_v1",
+  "version": "1.0",
+  "products": [
+    {
+      "product_id": "PRODUCT_YXFB26",
+      "display_name": "平安御享金越（2026）终身寿险（分红型）",
+      "aliases": [
+        "御享分红26"
+      ],
+      "document_path": "data/product/御享分红26.md",
+      "document_sha256": "6D651A9B27686A1D7F6778DC74C2E1064DD1244EF381589367567FAA2C55D5CB",
+      "document_version": null,
+      "source_kind": "user_provided_markdown"
+    },
+    {
+      "product_id": "PRODUCT_YXJY_ANNUITY",
+      "display_name": "平安御享金越年金保险（分红型）",
+      "aliases": [
+        "御享金越年金"
+      ],
+      "document_path": "data/product/御享金越年金.md",
+      "document_sha256": "B2C19C8128C50B20C43EA5BFDA25480ADE46C9D2F22A06DA8E165C2BAEE53055",
+      "document_version": null,
+      "source_kind": "user_provided_markdown"
+    }
+  ]
+}
+

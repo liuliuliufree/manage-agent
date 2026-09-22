@@ -50,19 +50,31 @@ class FlowLogger:
 
     def emit(self, event: str, **details: object) -> None:
         self._sequence += 1
-        print(
-            json.dumps(
-                {
-                    "sequence": self._sequence,
-                    "case": self._case_name,
-                    "event": event,
-                    **details,
-                },
-                ensure_ascii=False,
-                default=str,
+        
+        data = {
+            "sequence": self._sequence,
+            "case": self._case_name,
+            "event": event,
+            **details,
+        }
+
+        print("{\n" + ",\n".join(
+            f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False, default=str)}"
+            for k, v in data.items()
+        ) + "\n}")
+        # print(
+        #     json.dumps(
+        #         {
+        #             "sequence": self._sequence,
+        #             "case": self._case_name,
+        #             "event": event,
+        #             **details,
+        #         },
+        #         ensure_ascii=False,
+        #         default=str,
                 
-            )
-        )
+        #     )
+        # )
 
 
 class LoggingFakeChatModel(FakeChatModel):

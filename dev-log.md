@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 2026-09-22 交付 M4 数据快照至 `data/client/` 与 `data/product/`：按已确认设计生成 50 位虚构个险客户和 115 条行为，附主题/素材字典、仅索引用户提供 Markdown 原文的产品目录、manifest、README 及标准库校验脚本。校验从实际文件计算统计和 SHA-256，验证年龄置换、行为配额、主窗口/历史分区、引用、statement_kind 文本一致性、渠道/代理人范围、去重口径和 7 项独立反例；本轮未开发 Capability、Tool、API、前端或 Replan，也未声称 M4 洞察能力已实现。
+
 - 2026-09-22 扩展 `scripts/smoke_demo_v1.py` 的可观察性：默认输出带 case、sequence 和 event 的 UTF-8 JSONL 全流程日志，覆盖可信运行上下文、初始产物、Parser/Planner 模型请求与响应、结构化 Goal/Plan、每个 CapabilityRequest/Result、实际 ArtifactStore 读写、确定性渠道/归属规则裁决、发布索引和最终模拟任务；不打印密钥、SDK 配置或隐藏推理。重新执行两个合成样例均完成，完整目标共 28 个事件，已知客户目标共 21 个事件，中文输出正常。
 
 - 2026-09-21 完成三份 Demo V1 开发文档定义的首版实现。Goal Parser 改为单次严格 JSON 提取，可信 actor/channel 只来自 RuntimeContext，受治理指标当前仅含 NBEV，金额执行有限确定性规范化；缺信息、协议失败、原文依据失败和模型失败均在 Planner 前停止，已有 Goal 修改与澄清续接延后。
