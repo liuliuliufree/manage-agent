@@ -15,6 +15,7 @@
 - `scripts/smoke_demo_v1.py` 提供两个离线端到端合成冒烟：完整开门红目标走洞察、圈客、策略、确定性门禁和模拟任务；已知“王女士（虚构）”通过可信初始 customer_set 跳过前置能力，直接生成策略并形成模拟任务。脚本默认按顺序输出 UTF-8 JSONL 全流程日志，包括 Parser/Planner 模型输入输出、Goal/Plan、Capability 请求与结果、对象读写、规则裁决、发布索引和最终模拟任务；不输出密钥或隐藏推理。所有经营对象、规则和 handler 均明确为合成数据。
 - `data/client/` 与 `data/product/` 已保存按 M4 设计生成的 50 位客户、115 条行为、主题/素材字典、产品原文索引、manifest 和 README；`scripts/validate_insight_mock_data.py` 可用标准库从实际文件计算统计和 SHA-256，并校验引用、配额、时间、去重口径及独立反例。
 - `src/application/insight_tools.py` 提供三个可独立装配的只读 `Tool`：`search_knowledge`、`read_knowledge`、`aggregate_records`。它们从受信配置绑定的本地 Markdown/Mock 快照读取或计算，使用白名单字段、别名精确解析、文件/manifest 指纹、左闭右开时间窗、同事件筛选、分组独立客户去重和显式分母；不接入 Capability、Planner、API 或前端，不生成 Opportunity、推荐、预测 NBEV 或客户名单。
+- `scripts/smoke_real_insight_agent.py` 提供真实 OpenAI-compatible 模型的洞察 Tool-Call 冒烟：要求模型完成知识检索、原文读取和实际快照统计，并对工具调用、105/40/15 统计、限制说明及禁止业务结论做确定性验收。该脚本仍是评测入口，不是生产 Agent 或 M4 Capability。
 - `web/` 仍保留旧 React/Vite 对话界面代码，但仓库没有对应的当前业务 HTTP API；前端不属于本轮交付。
 
 ## 核心契约与边界
@@ -47,6 +48,7 @@
 - 2026-09-22：`scripts/smoke_demo_v1.py` 两个端到端合成样例均完成，均只生成 Plan V1，并输出可读取中文的结构化全流程日志及 `execution_mode=simulated` 的个险模拟任务。
 - 2026-09-22：M4 合成快照校验通过：50 位客户、115 条行为，主窗口/历史事件 105/10，近期活跃客户 40，独立反例夹具 7 项通过；未执行 M4 洞察能力或完整 Demo 验证。
 - 2026-09-22：三个 M4 只读工具离线测试 5 项通过，覆盖知识别名与原文指纹、非法参数/路径边界、客户年龄分母、同事件筛选、主题去重和源数据变体；未执行 M4 洞察 Capability 或完整 Demo 验证。
+- 2026-09-22：新增真实模型洞察 Tool-Call 冒烟脚本；本轮仅完成脚本编译检查，未将真实模型在线结果写入验证基线。
 - 2026-09-21：真实模型在线验证未完成，原因见已知限制。
 
 ## 任务入口
@@ -55,4 +57,5 @@
 - 运行 Demo V1 合成端到端冒烟：`.\.venv\Scripts\python.exe scripts\smoke_demo_v1.py`
 - 编译检查：`.\.venv\Scripts\python.exe -m compileall -q src tests scripts`
 - Agent Runtime 离线冒烟仍为：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe scripts\smoke_agent_loop.py`
+- 运行真实模型洞察冒烟：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe scripts\smoke_real_insight_agent.py`
 - 校验 M4 合成快照：`.\.venv\Scripts\python.exe scripts\validate_insight_mock_data.py`

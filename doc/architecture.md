@@ -45,7 +45,8 @@ src/application/
 └─ business_agent.py            Parser → Planner → 单 Plan 执行入口
 
 scripts/
-└─ smoke_demo_v1.py             两个合成端到端 Demo V1 冒烟
+├─ smoke_demo_v1.py             两个合成端到端 Demo V1 冒烟
+└─ smoke_real_insight_agent.py  真实模型调用三个洞察 Tool 的评测冒烟
 ```
 
 M4 数据快照：

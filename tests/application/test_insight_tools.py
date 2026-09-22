@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from src.application.insight_tools import InsightToolConfig, build_insight_tools
+from scripts.smoke_real_insight_agent import _has_positive_business_claim
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -103,6 +104,11 @@ class InsightToolsTests(unittest.TestCase):
         self.assertEqual(unsupported["error"]["code"], "UNSUPPORTED_FIELD")
         forbidden = self.search.handler({"terms": ["领取"], "path": "C:\\secret.txt"})
         self.assertEqual(forbidden["error"]["code"], "INVALID_ARGUMENT")
+
+    def test_smoke_claim_guard_allows_limitations_but_rejects_positive_claims(self):
+        self.assertFalse(_has_positive_business_claim("不能预测 NBEV，也不等于推荐购买。"))
+        self.assertTrue(_has_positive_business_claim("预计可贡献 500W NBEV。"))
+        self.assertTrue(_has_positive_business_claim("该产品适合购买。"))
 
 
 if __name__ == "__main__":
