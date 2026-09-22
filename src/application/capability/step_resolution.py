@@ -12,10 +12,7 @@ def is_step_ready(step: PlanStep, context: ExecutionContext) -> bool:
 
     for dependency_id in step.depends_on:
         dependency_result = context.step_results.get(dependency_id)
-        if dependency_result is None or dependency_result.status not in (
-            CapabilityStatus.SUCCESS,
-            CapabilityStatus.PARTIAL_SUCCESS,
-        ):
+        if dependency_result is None or dependency_result.status is not CapabilityStatus.SUCCESS:
             return False
 
     return True

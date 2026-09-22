@@ -19,7 +19,20 @@ class CapabilityExecutor:
     """Dispatch a capability request to its registered callable handler."""
 
     def __init__(self, handlers: Mapping[str, CapabilityHandler]) -> None:
+        non_callable = sorted(
+            capability_id
+            for capability_id, handler in handlers.items()
+            if not callable(handler)
+        )
+        if non_callable:
+            raise ValueError(
+                f"Capability handler(s) must be callable: {non_callable!r}"
+            )
         self._handlers = dict(handlers)
+
+    @property
+    def available_capability_ids(self) -> frozenset[str]:
+        return frozenset(self._handlers)
 
     def execute(self, request: CapabilityRequest) -> CapabilityResult:
         handler = self._handlers.get(request.capability_id)

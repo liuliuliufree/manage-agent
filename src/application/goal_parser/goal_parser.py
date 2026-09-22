@@ -1,8 +1,11 @@
-"""Goal Parser public service: model semantics plus deterministic safeguards."""
+"""Goal Parser Demo V1: one model extraction followed by deterministic checks."""
+
+from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from pathlib import Path
@@ -11,265 +14,488 @@ from uuid import uuid4
 
 from openai.types.chat.completion_create_params import CompletionCreateParamsBase
 
-from src.domain import AudienceScope, ChannelAndActor, Constraint, Goal, Metric, MissingInformation, ProductOrNeedContext, Target, TimeHorizon
+from src.domain import (
+    AudienceScope,
+    ChannelAndActor,
+    Constraint,
+    Goal,
+    Metric,
+    MissingInformation,
+    ProductOrNeedContext,
+    Target,
+    TimeHorizon,
+)
 from src.model import ChatModel
 
-_EDITABLE_FIELDS = ("goal_type", "metric", "target", "time_horizon", "audience_scope", "product_or_need_context", "constraints")
-_SYSTEM_PROMPT = """你是智慧经营系统的 Goal Parser。只输出一个 JSON 对象，不要 Markdown。
-只解释用户明确说过的内容，不能输出 actor、channel、goal_id、version 或授权结论。
-修改已有 Goal 时，使用 updates：{"field":{"op":"KEEP"|"SET"|"CLEAR","value":...}}。
-未修改字段用 KEEP；CLEAR 仅限用户明确要求删除整个字段。metric 应输出用户提及的名称，不得创造 code。
-同时输出 needs_clarification(boolean) 和 clarification_question(string|null)。"""
+from .prompts import SYSTEM_PROMPT
 
 
-class _ClarificationNeeded(ValueError):
-    def __init__(self, field: str, reason: str) -> None:
-        self.missing = MissingInformation(field, reason, "无法安全应用本次 Goal 修改", True)
-        super().__init__(reason)
+_FIELDS = frozenset(
+    {
+        "goal_type",
+        "metric_text",
+        "target_text",
+        "time_text",
+        "products",
+        "needs",
+        "audience_text",
+        "constraints",
+    }
+)
+_GOAL_TYPES = frozenset({"performance_achievement", "opportunity_discovery"})
+_TEXT_FIELDS = ("metric_text", "target_text", "time_text", "audience_text")
+_LIST_FIELDS = ("products", "needs", "constraints")
+_AMOUNT_PATTERN = re.compile(
+    r"^(?P<number>(?:\d+(?:\.\d+)?|\.\d+))\s*(?P<unit>元|万元|万|[Ww]|亿元|亿)?$"
+)
+_UNIT_MULTIPLIERS = {
+    None: Decimal("1"),
+    "元": Decimal("1"),
+    "万": Decimal("10000"),
+    "万元": Decimal("10000"),
+    "W": Decimal("10000"),
+    "w": Decimal("10000"),
+    "亿": Decimal("100000000"),
+    "亿元": Decimal("100000000"),
+}
 
 
 class GoalParseStatus(StrEnum):
-    READY = "READY"
+    SUCCESS = "SUCCESS"
     CLARIFICATION_REQUIRED = "CLARIFICATION_REQUIRED"
     TECHNICAL_FAILURE = "TECHNICAL_FAILURE"
 
 
 @dataclass(frozen=True, slots=True)
 class RuntimeContext:
-    actor_ref: str | None = None
-    channel_ref: str | None = None
+    actor_id: str
+    channel_id: str
+    context_source: str
 
-
-@dataclass(frozen=True, slots=True)
-class MetricVocabulary:
-    """Small replaceable, versioned read-only metric vocabulary."""
-    source_id: str
-    version: str
-    metrics: tuple[Mapping[str, Any], ...]
-
-    @classmethod
-    def bundled(cls) -> "MetricVocabulary":
-        payload = json.loads(Path(__file__).with_name("metric_vocabulary.json").read_text(encoding="utf-8"))
-        return cls(payload["source_id"], payload["version"], tuple(payload["metrics"]))
-
-    def resolve(self, request_text: str) -> Metric | None:
-        matches = [item for item in self.metrics if any(isinstance(alias, str) and alias in request_text for alias in item.get("aliases", ()))]
-        if len(matches) != 1:
-            return None
-        return Metric(code=str(matches[0]["code"]), display_name=str(matches[0]["display_name"]))
+    @property
+    def is_valid(self) -> bool:
+        return all(
+            isinstance(value, str) and bool(value.strip())
+            for value in (self.actor_id, self.channel_id, self.context_source)
+        )
 
 
 @dataclass(frozen=True, slots=True)
 class GoalParseResult:
-    goal: Goal | None
-    status: GoalParseStatus = GoalParseStatus.READY
+    status: GoalParseStatus
+    goal: Goal | None = None
     missing_information: tuple[MissingInformation, ...] = ()
     clarification_question: str | None = None
     error: str | None = None
+    diagnostics: dict[str, str] = field(default_factory=dict)
 
     @property
     def need_clarification(self) -> bool:
         return self.status is GoalParseStatus.CLARIFICATION_REQUIRED
 
+
+class _MetricConfigError(ValueError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class _MetricEntry:
+    code: str
+    display_name: str
+    aliases: tuple[str, ...]
+    unit: str
+
+
+class MetricVocabulary:
+    """Load and query the small versioned metric snapshot used by Demo V1."""
+
+    def __init__(
+        self,
+        *,
+        path: str | Path | None = None,
+        data: Mapping[str, Any] | None = None,
+    ) -> None:
+        self._error: Exception | None = None
+        self.source_id = ""
+        self.version = ""
+        self._entries: tuple[_MetricEntry, ...] = ()
+        try:
+            if data is not None and path is not None:
+                raise _MetricConfigError("Metric configuration source is ambiguous")
+            if data is None:
+                source_path = Path(path) if path is not None else Path(__file__).with_name(
+                    "metric_vocabulary.json"
+                )
+                loaded = json.loads(source_path.read_text(encoding="utf-8"))
+            else:
+                loaded = dict(data)
+            self._load(loaded)
+        except Exception as exc:  # surfaced later as a stable parse error
+            self._error = exc
+
+    def _load(self, payload: Any) -> None:
+        if not isinstance(payload, dict) or set(payload) != {
+            "source_id",
+            "version",
+            "metrics",
+        }:
+            raise _MetricConfigError("Metric configuration shape is invalid")
+        source_id = payload["source_id"]
+        version = payload["version"]
+        metrics = payload["metrics"]
+        if not isinstance(source_id, str) or not source_id.strip():
+            raise _MetricConfigError("Metric source_id is required")
+        if not isinstance(version, str) or not version.strip():
+            raise _MetricConfigError("Metric version is required")
+        if not isinstance(metrics, list) or not metrics:
+            raise _MetricConfigError("Metric entries are required")
+
+        entries: list[_MetricEntry] = []
+        for item in metrics:
+            if not isinstance(item, dict) or set(item) != {
+                "code",
+                "display_name",
+                "aliases",
+                "unit",
+            }:
+                raise _MetricConfigError("Metric entry shape is invalid")
+            code = item["code"]
+            display_name = item["display_name"]
+            aliases = item["aliases"]
+            unit = item["unit"]
+            if not all(
+                isinstance(value, str) and bool(value.strip())
+                for value in (code, display_name, unit)
+            ):
+                raise _MetricConfigError("Metric text fields are required")
+            if not isinstance(aliases, list) or not all(
+                isinstance(alias, str) and alias.strip() for alias in aliases
+            ):
+                raise _MetricConfigError("Metric aliases are invalid")
+            entries.append(
+                _MetricEntry(
+                    code=code.strip(),
+                    display_name=display_name.strip(),
+                    aliases=tuple(alias.strip() for alias in aliases),
+                    unit=unit.strip(),
+                )
+            )
+        self.source_id = source_id.strip()
+        self.version = version.strip()
+        self._entries = tuple(entries)
+
+    def _ensure_valid(self) -> None:
+        if self._error is not None:
+            raise _MetricConfigError("Metric configuration is invalid") from self._error
+
     @property
-    def needs_clarification(self) -> bool:
-        return self.need_clarification
+    def prompt_terms(self) -> tuple[str, ...]:
+        self._ensure_valid()
+        terms: list[str] = []
+        for entry in self._entries:
+            terms.extend((entry.display_name, *entry.aliases))
+        return tuple(dict.fromkeys(terms))
+
+    def resolve(self, text: str) -> _MetricEntry | None:
+        self._ensure_valid()
+        normalized = text.strip().casefold()
+        matches = {
+            entry.code: entry
+            for entry in self._entries
+            if normalized
+            in {entry.display_name.casefold(), *(alias.casefold() for alias in entry.aliases)}
+        }
+        return next(iter(matches.values())) if len(matches) == 1 else None
+
+    @property
+    def diagnostics(self) -> dict[str, str]:
+        self._ensure_valid()
+        return {
+            "metric_vocabulary_source_id": self.source_id,
+            "metric_vocabulary_version": self.version,
+        }
 
 
 class GoalParser:
-    """The one public parsing entry point; identity and trust stay in Python."""
-    def __init__(self, *, model: ChatModel, model_name: str, goal_id_factory: Callable[[], str] | None = None, metric_vocabulary: MetricVocabulary | None = None) -> None:
-        if not model_name.strip():
-            raise ValueError("GoalParser model_name is required")
-        self._model, self._model_name = model, model_name
+    """Parse one complete request; revisions and recovery are intentionally absent."""
+
+    def __init__(
+        self,
+        *,
+        model: ChatModel,
+        model_name: str,
+        goal_id_factory: Callable[[], str] | None = None,
+        metric_vocabulary: MetricVocabulary | None = None,
+    ) -> None:
+        if not isinstance(model_name, str) or not model_name.strip():
+            raise ValueError("Goal Parser model_name is required")
+        self._model = model
+        self._model_name = model_name
         self._goal_id_factory = goal_id_factory or (lambda: f"goal_{uuid4().hex}")
-        self._metric_vocabulary = metric_vocabulary or MetricVocabulary.bundled()
+        self._metrics = metric_vocabulary or MetricVocabulary()
 
-    async def parse(self, *, user_request: str, runtime_context: RuntimeContext | None = None, existing_goal: Goal | None = None) -> GoalParseResult:
-        request = user_request.strip()
-        if not request:
-            return self._failure("Goal request is required")
+    async def parse(
+        self,
+        *,
+        user_request: str,
+        runtime_context: RuntimeContext | None = None,
+        existing_goal: Goal | None = None,
+    ) -> GoalParseResult:
+        if runtime_context is None or not runtime_context.is_valid:
+            return self._technical_failure("RUNTIME_CONTEXT_REQUIRED")
+        if existing_goal is not None:
+            return self._clarification(
+                field="original_request",
+                reason="首版不支持修改已有目标",
+                impact="无法安全判断要修改的目标内容",
+                question="请重新提交包含全部信息的完整目标。",
+            )
+        if not isinstance(user_request, str) or not user_request.strip():
+            return self._clarification(
+                field="goal_type",
+                reason="未提供经营目标",
+                impact="无法生成经营计划",
+            )
+
         try:
-            payload = await self._completion_payload(request, existing_goal)
-            goal, missing = self._build_goal(request, payload, runtime_context, existing_goal)
-            if payload.get("needs_clarification") and not missing:
-                missing = (MissingInformation("goal_details", "用户请求仍存在歧义", "需要确认后才能开始经营计划", True),)
-            if any(item.required_before_execution for item in missing):
-                return GoalParseResult(goal, GoalParseStatus.CLARIFICATION_REQUIRED, missing, self._question(payload, missing))
-            return GoalParseResult(goal, GoalParseStatus.READY, missing, self._question(payload, missing))
-        except _ClarificationNeeded as exc:
-            return GoalParseResult(existing_goal, GoalParseStatus.CLARIFICATION_REQUIRED, (exc.missing,), self._question({}, (exc.missing,)))
-        except (ValueError, TypeError, KeyError, InvalidOperation) as exc:
-            return self._failure("Goal parser protocol validation failed", existing_goal, str(exc))
+            diagnostics = self._metrics.diagnostics
+            terms = "、".join(self._metrics.prompt_terms)
+        except _MetricConfigError:
+            return self._technical_failure("METRIC_CONFIG_INVALID")
+
+        try:
+            completion = await self._model.complete(
+                self._model_request(user_request=user_request, metric_terms=terms)
+            )
         except Exception:
-            return self._failure("Goal parser is temporarily unavailable", existing_goal)
+            return self._technical_failure("MODEL_CALL_FAILED", diagnostics)
 
-    async def _completion_payload(self, request: str, existing: Goal | None) -> Mapping[str, Any]:
-        first = await self._model.complete(self._model_request(request, existing))
         try:
-            return self._decode(first.choices[0].message.content)
-        except ValueError:
-            repaired = await self._model.complete(self._repair_request(first.choices[0].message.content))
-            return self._decode(repaired.choices[0].message.content)
+            payload = self._payload(self._completion_content(completion))
+        except (ValueError, TypeError, json.JSONDecodeError):
+            return self._technical_failure("MODEL_PROTOCOL_INVALID", diagnostics)
 
-    def _model_request(self, request: str, existing: Goal | None) -> CompletionCreateParamsBase:
-        data: dict[str, Any] = {"user_request": request}
-        if existing: data["current_goal"] = self._goal_summary(existing)
-        return cast(CompletionCreateParamsBase, {"model": self._model_name, "messages": [{"role": "system", "content": _SYSTEM_PROMPT}, {"role": "user", "content": json.dumps(data, ensure_ascii=False)}], "response_format": {"type": "json_object"}, "temperature": 0})
+        if not self._is_grounded(payload, user_request):
+            return self._technical_failure("MODEL_GROUNDING_FAILED", diagnostics)
 
-    def _repair_request(self, content: str | None) -> CompletionCreateParamsBase:
-        return cast(CompletionCreateParamsBase, {"model": self._model_name, "messages": [{"role": "system", "content": "仅修复以下响应为合法 JSON 对象。不得添加、删除或改变任何业务字符串、数值、操作或 null 语义。"}, {"role": "user", "content": content or ""}], "response_format": {"type": "json_object"}, "temperature": 0})
+        goal_type = payload["goal_type"]
+        if goal_type is None:
+            return self._clarification(
+                field="goal_type",
+                reason="请求不是首版支持的单一完整经营目标",
+                impact="无法生成经营计划",
+                diagnostics=diagnostics,
+            )
 
-    @staticmethod
-    def _decode(content: str | None) -> Mapping[str, Any]:
-        try: value = json.loads(content or "")
-        except json.JSONDecodeError as exc: raise ValueError("invalid JSON") from exc
-        if not isinstance(value, dict): raise ValueError("JSON response must be an object")
-        if not isinstance(value.get("needs_clarification", False), bool): raise ValueError("needs_clarification must be a boolean")
-        return value
+        metric_text = cast(str | None, payload["metric_text"])
+        target_text = cast(str | None, payload["target_text"])
+        metric_entry = self._metrics.resolve(metric_text) if metric_text else None
+        metric = (
+            Metric(code=metric_entry.code, display_name=metric_entry.display_name)
+            if metric_entry is not None
+            else None
+        )
+        target = self._target(
+            target_text,
+            metric_unit=metric_entry.unit if metric_entry is not None else None,
+        )
 
-    def _build_goal(self, request: str, payload: Mapping[str, Any], runtime: RuntimeContext | None, existing: Goal | None) -> tuple[Goal | None, tuple[MissingInformation, ...]]:
-        values, changed = self._merged_values(request, payload, existing)
-        goal_type = values["goal_type"]
-        if not isinstance(goal_type, str) or not goal_type.strip():
-            return None, (MissingInformation("goal_type", "无法可靠识别目标意图", "无法创建经营目标", True),)
-        metric = self._metric(request, values["metric"], existing)
         missing: list[MissingInformation] = []
-        if self._requires_metric(request, values["target"], metric):
-            missing.append(MissingInformation("metric", "目标值未能唯一对应受治理指标", "不同指标会产生不同经营计划", True))
-        data = dict(goal_type=goal_type, metric=metric, target=self._target(values["target"]), time_horizon=self._time_horizon(request, values["time_horizon"], existing), audience_scope=self._audience(request, values["audience_scope"], existing), product_or_need_context=self._product_context(request, values["product_or_need_context"], existing), constraints=self._constraints(request, values["constraints"], existing), channel_and_actor=self._trusted_context(runtime, existing), missing_information=tuple(missing))
-        if existing:
-            if not changed: raise ValueError("No supported Goal update was provided")
-            return existing.revise(**data), tuple(missing)
-        return Goal(self._goal_id_factory(), 1, request, **data), tuple(missing)
+        if goal_type == "performance_achievement" or metric_text is not None:
+            if metric is None:
+                missing.append(
+                    self._missing(
+                        "metric",
+                        "指标未配置或存在歧义",
+                        "无法确定目标的衡量口径",
+                    )
+                )
+        if goal_type == "performance_achievement" or target_text is not None:
+            if target is None:
+                missing.append(
+                    self._missing(
+                        "target",
+                        "目标值缺失或不符合首版支持的正向金额格式",
+                        "无法确定量化目标",
+                    )
+                )
 
-    def _merged_values(self, request: str, payload: Mapping[str, Any], existing: Goal | None) -> tuple[dict[str, Any], bool]:
-        current, changed = self._goal_values(existing), False
-        updates = payload.get("updates")
-        if updates is not None and not isinstance(updates, Mapping): raise ValueError("updates must be an object")
-        for field in _EDITABLE_FIELDS:
-            instruction = updates.get(field) if isinstance(updates, Mapping) else None
-            if instruction is None and field in payload: instruction = {"op": "SET", "value": payload[field]}
-            if instruction is None and field == "product_or_need_context" and any(key in payload for key in ("product_mentions", "need_mentions", "product_or_need_raw_expression")):
-                instruction = {"op": "SET", "value": {"product_mentions": payload.get("product_mentions", []), "need_mentions": payload.get("need_mentions", []), "product_or_need_raw_expression": payload.get("product_or_need_raw_expression")}}
-            if instruction is None: continue
-            if not isinstance(instruction, Mapping): raise ValueError(f"{field} update must be an object")
-            op = instruction.get("op")
-            if op == "KEEP": continue
-            if op == "CLEAR":
-                if not self._clear_is_explicit(request): raise _ClarificationNeeded(field, "未能从用户原文确认清空意图")
-                current[field], changed = None, True
-            elif op == "SET":
-                if "value" not in instruction: raise ValueError(f"{field} SET requires value")
-                current[field], changed = instruction["value"], True
-            else: raise ValueError(f"{field} update op is invalid")
-        return current, changed
+        products = tuple(cast(list[str], payload["products"]))
+        needs = tuple(cast(list[str], payload["needs"]))
+        missing_tuple = tuple(missing)
+        goal = Goal(
+            goal_id=self._goal_id_factory(),
+            version=1,
+            original_request=user_request,
+            goal_type=goal_type,
+            metric=metric,
+            target=target,
+            time_horizon=(
+                TimeHorizon(raw_expression=cast(str, payload["time_text"]))
+                if payload["time_text"] is not None
+                else None
+            ),
+            audience_scope=(
+                AudienceScope(
+                    scope_type="user_expression",
+                    raw_expression=cast(str, payload["audience_text"]),
+                )
+                if payload["audience_text"] is not None
+                else None
+            ),
+            product_or_need_context=(
+                ProductOrNeedContext(products=products, needs=needs)
+                if products or needs
+                else None
+            ),
+            channel_and_actor=ChannelAndActor(
+                channel_id=runtime_context.channel_id.strip(),
+                actor_id=runtime_context.actor_id.strip(),
+                context_source=runtime_context.context_source.strip(),
+            ),
+            constraints=tuple(
+                Constraint(
+                    code="user_stated",
+                    description=value,
+                    source="user_request",
+                )
+                for value in cast(list[str], payload["constraints"])
+            ),
+            missing_information=missing_tuple,
+        )
+
+        if missing_tuple:
+            return GoalParseResult(
+                status=GoalParseStatus.CLARIFICATION_REQUIRED,
+                goal=goal,
+                missing_information=goal.missing_information,
+                clarification_question="请补全缺失信息后重新提交完整目标。",
+                diagnostics=diagnostics,
+            )
+        return GoalParseResult(
+            status=GoalParseStatus.SUCCESS,
+            goal=goal,
+            missing_information=goal.missing_information,
+            diagnostics=diagnostics,
+        )
+
+    def _model_request(
+        self,
+        *,
+        user_request: str,
+        metric_terms: str,
+    ) -> CompletionCreateParamsBase:
+        return cast(
+            CompletionCreateParamsBase,
+            {
+                "model": self._model_name,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": SYSTEM_PROMPT.replace(
+                            "{metric_terms}", metric_terms
+                        ),
+                    },
+                    {"role": "user", "content": user_request},
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0,
+            },
+        )
 
     @staticmethod
-    def _clear_is_explicit(request: str) -> bool:
-        return any(token in request for token in ("取消", "清除", "删除", "不再", "移除", "不要"))
-
-    def _metric(self, request: str, value: Any, existing: Goal | None) -> Metric | None:
-        if value is None: return None
-        item = self._object(value, "metric")
-        resolved = self._metric_vocabulary.resolve(request)
-        if resolved: return resolved
-        if existing and existing.metric and item.get("code") == existing.metric.code:
-            return existing.metric
-        return None
+    def _completion_content(completion: Any) -> str:
+        if not getattr(completion, "choices", None):
+            raise ValueError("missing choice")
+        content = completion.choices[0].message.content
+        if not isinstance(content, str) or not content:
+            raise ValueError("empty content")
+        return content
 
     @staticmethod
-    def _requires_metric(request: str, target: Any, metric: Metric | None) -> bool:
-        return target is not None and metric is None and ("业绩" in request or "目标" in request)
-
-    def _target(self, value: Any) -> Target | None:
-        if value is None: return None
-        item, raw = self._object(value, "target"), self._object(value, "target").get("value")
-        if raw is None or isinstance(raw, bool): raise ValueError("target.value is required")
-        try: parsed: Decimal | str = Decimal(str(raw))
-        except InvalidOperation:
-            if not isinstance(raw, str): raise ValueError("target.value is invalid")
-            parsed = raw
-        direction = item.get("direction", item.get("comparator", "at_least"))
-        if direction not in {"at_least", "at_most", "equal_to", "improve"}: raise ValueError("target direction is invalid")
-        return Target(parsed, self._string(item.get("unit")), cast(Any, direction))
-
-    def _time_horizon(self, request: str, value: Any, existing: Goal | None) -> TimeHorizon | None:
-        if value is None: return None
-        raw = self._string(self._object(value, "time_horizon").get("raw_expression"))
-        if existing and existing.time_horizon and raw == existing.time_horizon.raw_expression:
-            return existing.time_horizon
-        return TimeHorizon(raw_expression=raw) if raw and raw in request else None
-
-    def _audience(self, request: str, value: Any, existing: Goal | None) -> AudienceScope | None:
-        if value is None: return None
-        item = self._object(value, "audience_scope"); raw, ref = self._string(item.get("raw_expression")), self._string(item.get("scope_reference"))
-        if existing and existing.audience_scope and raw == existing.audience_scope.raw_expression and ref == existing.audience_scope.scope_reference:
-            return existing.audience_scope
-        if (raw and raw not in request) or (ref and ref not in request): return None
-        scope_type = self._string(item.get("scope_type"))
-        return AudienceScope(scope_type, ref, raw) if scope_type and (raw or ref) else None
-
-    def _product_context(self, request: str, value: Any, existing: Goal | None) -> ProductOrNeedContext | None:
-        if value is None: return None
-        item = self._object(value, "product_or_need_context")
-        old = existing.product_or_need_context if existing else None
-        products = self._mentions(item.get("products", item.get("product_mentions", [])), request, old.products if old else ())
-        needs = self._mentions(item.get("needs", item.get("need_mentions", [])), request, old.needs if old else ())
-        raw = self._string(item.get("raw_expression", item.get("product_or_need_raw_expression")))
-        if old and raw == old.raw_expression: raw = old.raw_expression
-        else: raw = raw if raw and raw in request else None
-        return ProductOrNeedContext(products, needs, raw) if products or needs or raw else None
-
-    def _mentions(self, value: Any, request: str, old: tuple[str, ...]) -> tuple[str, ...]:
-        if not isinstance(value, list): raise ValueError("mentions must be an array")
-        return tuple(item for item in value if isinstance(item, str) and item.strip() and (item in request or item in old))
-
-    def _constraints(self, request: str, value: Any, existing: Goal | None) -> tuple[Constraint, ...]:
-        if value is None: return ()
-        if not isinstance(value, list): raise ValueError("constraints must be an array")
-        result = []
-        for item in value:
-            obj = self._object(item, "constraint"); description = self._required_string(obj.get("description"), "constraint description")
-            if description in request or (existing and any(old.code == obj.get("code") and old.description == description for old in existing.constraints)):
-                result.append(Constraint(self._required_string(obj.get("code"), "constraint code"), description, "user_request"))
-        return tuple(result)
+    def _payload(content: str) -> dict[str, Any]:
+        payload = json.loads(content)
+        if not isinstance(payload, dict) or set(payload) != _FIELDS:
+            raise ValueError("invalid payload fields")
+        goal_type = payload["goal_type"]
+        if goal_type is not None and goal_type not in _GOAL_TYPES:
+            raise ValueError("invalid goal_type")
+        for field_name in _TEXT_FIELDS:
+            value = payload[field_name]
+            if value is not None and (
+                not isinstance(value, str) or not value.strip()
+            ):
+                raise ValueError(f"invalid {field_name}")
+        for field_name in _LIST_FIELDS:
+            value = payload[field_name]
+            if not isinstance(value, list) or not all(
+                isinstance(item, str) and item.strip() for item in value
+            ):
+                raise ValueError(f"invalid {field_name}")
+        return payload
 
     @staticmethod
-    def _trusted_context(runtime: RuntimeContext | None, existing: Goal | None) -> ChannelAndActor | None:
-        if runtime is None and existing: return existing.channel_and_actor
-        runtime = runtime or RuntimeContext()
-        return ChannelAndActor(runtime.channel_ref, runtime.actor_ref, "runtime_context")
+    def _is_grounded(payload: Mapping[str, Any], user_request: str) -> bool:
+        values: list[str] = []
+        for field_name in _TEXT_FIELDS:
+            value = payload[field_name]
+            if value is not None:
+                values.append(value.strip())
+        for field_name in _LIST_FIELDS:
+            values.extend(item.strip() for item in payload[field_name])
+        return all(value in user_request for value in values)
+
     @staticmethod
-    def _goal_values(goal: Goal | None) -> dict[str, Any]:
-        if goal is None: return {field: None for field in _EDITABLE_FIELDS}
-        return {
-            "goal_type": goal.goal_type,
-            "metric": {"code": goal.metric.code, "display_name": goal.metric.display_name} if goal.metric else None,
-            "target": {"value": goal.target.value, "unit": goal.target.unit, "direction": goal.target.comparator} if goal.target else None,
-            "time_horizon": {"raw_expression": goal.time_horizon.raw_expression} if goal.time_horizon else None,
-            "audience_scope": {"scope_type": goal.audience_scope.scope_type, "scope_reference": goal.audience_scope.scope_reference, "raw_expression": goal.audience_scope.raw_expression} if goal.audience_scope else None,
-            "product_or_need_context": {"products": list(goal.product_or_need_context.products), "needs": list(goal.product_or_need_context.needs), "raw_expression": goal.product_or_need_context.raw_expression} if goal.product_or_need_context else None,
-            "constraints": [{"code": item.code, "description": item.description} for item in goal.constraints],
-        }
+    def _target(text: str | None, *, metric_unit: str | None) -> Target | None:
+        if text is None:
+            return None
+        match = _AMOUNT_PATTERN.fullmatch(text.strip())
+        if match is None:
+            return None
+        unit = match.group("unit")
+        if unit is None and metric_unit != "元":
+            return None
+        try:
+            value = Decimal(match.group("number")) * _UNIT_MULTIPLIERS[unit]
+        except (InvalidOperation, KeyError):
+            return None
+        if value <= 0:
+            return None
+        return Target(value=value, unit="元", comparator="at_least")
+
     @staticmethod
-    def _object(value: Any, name: str) -> Mapping[str, Any]:
-        if not isinstance(value, Mapping): raise ValueError(f"{name} must be an object")
-        return value
+    def _missing(field_name: str, reason: str, impact: str) -> MissingInformation:
+        return MissingInformation(
+            field=field_name,
+            reason=reason,
+            impact=impact,
+            required_before_execution=True,
+        )
+
+    def _clarification(
+        self,
+        *,
+        field: str,
+        reason: str,
+        impact: str,
+        question: str = "请补全缺失信息后重新提交完整目标。",
+        diagnostics: dict[str, str] | None = None,
+    ) -> GoalParseResult:
+        missing = (self._missing(field, reason, impact),)
+        return GoalParseResult(
+            status=GoalParseStatus.CLARIFICATION_REQUIRED,
+            missing_information=missing,
+            clarification_question=question,
+            diagnostics=dict(diagnostics or {}),
+        )
+
     @staticmethod
-    def _string(value: Any) -> str | None: return value.strip() if isinstance(value, str) and value.strip() else None
-    def _required_string(self, value: Any, name: str) -> str:
-        result = self._string(value)
-        if result is None: raise ValueError(f"{name} is required")
-        return result
-    @staticmethod
-    def _question(payload: Mapping[str, Any], missing: tuple[MissingInformation, ...]) -> str | None:
-        candidate = payload.get("clarification_question")
-        if isinstance(candidate, str) and candidate.strip(): return candidate.strip()
-        return "请明确目标对应的具体经营指标。" if missing else None
-    @staticmethod
-    def _failure(message: str, goal: Goal | None = None, detail: str | None = None) -> GoalParseResult:
-        return GoalParseResult(goal, GoalParseStatus.TECHNICAL_FAILURE, error=message if detail is None else f"{message}: {detail}")
-    @staticmethod
-    def _goal_summary(goal: Goal) -> Mapping[str, Any]:
-        return {"goal_type": goal.goal_type, "metric": goal.metric.code if goal.metric else None, "target": str(goal.target.value) if goal.target else None, "version": goal.version}
+    def _technical_failure(
+        code: str,
+        diagnostics: dict[str, str] | None = None,
+    ) -> GoalParseResult:
+        return GoalParseResult(
+            status=GoalParseStatus.TECHNICAL_FAILURE,
+            error=code,
+            diagnostics=dict(diagnostics or {}),
+        )

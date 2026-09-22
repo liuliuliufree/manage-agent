@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+- 2026-09-22 扩展 `scripts/smoke_demo_v1.py` 的可观察性：默认输出带 case、sequence 和 event 的 UTF-8 JSONL 全流程日志，覆盖可信运行上下文、初始产物、Parser/Planner 模型请求与响应、结构化 Goal/Plan、每个 CapabilityRequest/Result、实际 ArtifactStore 读写、确定性渠道/归属规则裁决、发布索引和最终模拟任务；不打印密钥、SDK 配置或隐藏推理。重新执行两个合成样例均完成，完整目标共 28 个事件，已知客户目标共 21 个事件，中文输出正常。
+
+- 2026-09-21 完成三份 Demo V1 开发文档定义的首版实现。Goal Parser 改为单次严格 JSON 提取，可信 actor/channel 只来自 RuntimeContext，受治理指标当前仅含 NBEV，金额执行有限确定性规范化；缺信息、协议失败、原文依据失败和模型失败均在 Planner 前停止，已有 Goal 修改与澄清续接延后。
+- Planner 新增 `PlanningUnavailableError`/`PlannerError`、严格成功/无法规划协议、受控 `*_refs` Context 和 Catalog/callable handler 交集；只有 JSON 语法错误允许一次格式修复。Demo 执行入口及 Planner 已移除 Replan/Plan V2 路径，NO_RESULT、PARTIAL_SUCCESS、BLOCKED 和 FAILED 均保留结果后停止，只有 SUCCESS 释放依赖。
+- 新增单次运行 ArtifactStore、CapabilityIO、PublishedArtifact、初始引用规范化、直接依赖输入选择、结果关联检查和 SUCCESS 原子发布。合成三步集成测试实际读取上游对象并验证上游内容变化会改变下游策略；缺输入、歧义、非法输出、重复执行和运行复用在 handler 或后继执行前被阻止。
+- 新增 `scripts/smoke_demo_v1.py`，以明确标识的虚构客户、机会、策略和规则跑通两个端到端样例：完整开门红目标形成四步 Plan V1 和个险模拟任务；“王女士下一步应该怎么经营”通过可信初始 customer_set 跳过洞察/圈客，形成两步 Plan V1 和模拟任务。两例均记录 `execution_mode=simulated`，不代表真实经营能力完成。
+- 2026-09-21 实际验证：公共 `src.application` 导入通过；完整离线 `unittest` 62 项通过；`src`、`tests`、`scripts` 编译通过；两个合成端到端冒烟通过。真实模型配置存在，但沙箱内在线调用均返回 `MODEL_CALL_FAILED`，外部端点访问未获授权，因此未完成在线模型验证；未把 FakeModel 或合成 handler 结果表述为真实模型/真实经营能力验证。
+
+- 2026-09-21 用户确认收缩 Demo 范围：仅交付一次 Goal 分析、Opportunity 发现、圈客和策略执行；每次请求最多一个 Plan，不构建或接入 Replan。NO_RESULT 停止，缺信息提示后结束运行，部分成功、阻断或失败不生成替代计划；追踪反馈、剩余目标调整和跨计划复用延后。已同步 AGENTS.md、开发基线、Demo 故事及相关首版设计/开发文档，将重规划验收改为禁止调用重规划。策略执行前确定性业务校验保留。本次只修改文档，未修改代码或执行运行测试；现有代码中的 Replan 路径尚未因此被禁用。此前同日“最多一次 Replan”的首版决策由本条范围决定取代。
+
 - 2026-09-21 完成 Goal Parser 收敛最小实现：在 `src.application.goal_parser` 保持统一入口，新增版本化 NBEV 指标词汇快照、顶层 `KEEP/SET/CLEAR` 合并、首次 `original_request` 保留、阻塞性 `MissingInformation`、单次 JSON 格式修复及明确技术失败结果。BusinessAgent 读取解析状态，在阻塞澄清时不调用 Planner；actor/channel 仍只由 Runtime Context 注入。新增 Goal Parser 契约测试，覆盖创建、可信上下文、指标白名单、澄清不规划、修改/清空、旧版本不可变、原文过滤和单次修复。2026-09-21 当前 19 项 `unittest` 与 `src`、`tests` 字节码编译通过；未执行真实模型在线验证。
 
 - 2026-09-21 确认 `doc/design/2026-09-21-replan-convergence.md`：Replan 复用 Planner，以结构化 Trigger、受控 Snapshot、完整 Plan 新版本和原子切换收敛跨版本恢复；Demo 首版仅自动处理 `NO_RESULT`，由显式运行 Policy 管理一次预算。确认有效成功产物与步骤分离、失败步骤退出新活动依赖链、失败模型生成尝试消耗预算，以及通过版本链和审计事件推导旧 Plan 的 `SUPERSEDED`。该结论不改变当前代码、实现事实或验证基线。

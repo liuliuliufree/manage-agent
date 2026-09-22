@@ -10,25 +10,17 @@ from .step_resolution import get_next_ready_step
 
 class ContinuationAction(StrEnum):
     CONTINUE = "continue"
-    REPLAN = "replan"
+    REPLAN = "replan"  # retained enum value; Demo V1 never returns it
     ASK_USER = "ask_user"
     FINISH = "finish"
     STOP = "stop"
 
 
-SUCCESS_LIKE = frozenset(
-    {
-        CapabilityStatus.SUCCESS,
-        CapabilityStatus.PARTIAL_SUCCESS,
-    }
-)
-
-
 def is_plan_finished(plan: Plan, context: ExecutionContext) -> bool:
-    """Return whether every plan step has a success-like result."""
+    """Return whether every plan step has a verified SUCCESS result."""
     return all(
         (result := context.step_results.get(step.step_id)) is not None
-        and result.status in SUCCESS_LIKE
+        and result.status is CapabilityStatus.SUCCESS
         for step in plan.steps
     )
 
@@ -40,16 +32,17 @@ def decide_continuation(
 ) -> ContinuationAction:
     """Choose the next runtime action from the latest capability result."""
     if last_result.status is CapabilityStatus.NO_RESULT:
-        return ContinuationAction.REPLAN
+        return ContinuationAction.STOP
     if last_result.status is CapabilityStatus.NEED_INFORMATION:
         return ContinuationAction.ASK_USER
     if last_result.status in (
+        CapabilityStatus.PARTIAL_SUCCESS,
         CapabilityStatus.BLOCKED,
         CapabilityStatus.FAILED,
     ):
         return ContinuationAction.STOP
 
-    if last_result.status in SUCCESS_LIKE:
+    if last_result.status is CapabilityStatus.SUCCESS:
         if get_next_ready_step(plan, context) is not None:
             return ContinuationAction.CONTINUE
         if is_plan_finished(plan, context):

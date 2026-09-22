@@ -2,17 +2,7 @@
 
 from collections.abc import Mapping
 
-from src.domain import CapabilityStatus, Plan
-
-from ..capability.execution_context import ExecutionContext
-
-
-_SUCCESS_LIKE = frozenset(
-    {
-        CapabilityStatus.SUCCESS,
-        CapabilityStatus.PARTIAL_SUCCESS,
-    }
-)
+from src.domain import Plan
 
 
 def validate_plan(
@@ -61,25 +51,3 @@ def validate_plan(
 
     for step_id in steps_by_id:
         visit(step_id)
-
-
-def validate_replan(
-    old_plan: Plan,
-    new_plan: Plan,
-    context: ExecutionContext,
-) -> None:
-    """Prevent retained completed step IDs from changing capability identity."""
-
-    old_steps = {step.step_id: step for step in old_plan.steps}
-    for new_step in new_plan.steps:
-        old_step = old_steps.get(new_step.step_id)
-        result = context.step_results.get(new_step.step_id)
-        if (
-            old_step is not None
-            and result is not None
-            and result.status in _SUCCESS_LIKE
-            and new_step.capability_id != old_step.capability_id
-        ):
-            raise ValueError(
-                f"Completed step {new_step.step_id!r} cannot change capability_id"
-            )

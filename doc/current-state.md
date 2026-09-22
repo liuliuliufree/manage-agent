@@ -2,48 +2,52 @@
 
 ## 当前能力
 
-- `src/model/` 提供 `ChatModel` 契约、OpenAI-compatible 配置、真实模型实现、FakeModel 和模型错误类型。
-- `src/agent/` 提供 Tool 定义与参数校验、Trace/Turn/ToolExecution 状态、生命周期事件，以及支持模型流式输出和 Tool 调用的多轮 Agent Loop。
-- Agent Runtime 仅依赖模型、消息和 Tool 协议，不感知开门红、客户、产品或 NBEV 等经营概念。
-- `src/domain/` 提供不依赖 Agent/Model 的收敛领域契约：版本化 Goal、最小结构化 Evidence、Evidence 驱动的 Opportunity、引用式 Capability 请求/结果和轻量依赖 Plan；M4～M7 才会消费的治理字段不提前进入核心对象。
-- `src/application/` 提供 M2-Lite Capability Catalog、Goal Parser、Planner，以及 M3-T01 至 T07 的最小 CapabilityExecutor、ExecutionContext、单步执行、Ready Step 解析、继续策略、`NO_RESULT` 重规划和 BusinessAgent 执行闭环；BusinessAgent 可将自然语言请求串联到 Goal、动态 Plan 和 Capability 执行，并根据结果继续、完成、询问用户、停止或最多生成一次 Plan 新版本后继续。
-- `tests/domain/` 使用标准库 `unittest` 覆盖 M1 核心契约、状态不变量、Plan 依赖校验和跨场景数据结构。
-- `web/` 保留 React/Vite 前端及 SSE 客户端和对话界面代码，但当前仓库已无对应的 `src/manage` 后端 API；前端不能据此宣称已有完整业务 Demo 闭环。
-- `doc/roadmap/` 包含总体路线；M1 领域边界、当前契约、不变量、验证矩阵和未来扩展条件已收敛到单一 `doc/roadmap/M1/M1.md`，不再保留 T01～T08 分篇。`doc/design/` 保存此前运行时及页面方案的设计记录，未自动视为当前实现。
+- `src/model/` 提供 `ChatModel` 契约、OpenAI-compatible 配置与实现、FakeChatModel 和模型错误类型。
+- `src/agent/` 提供 Tool 定义、Trace/Turn/ToolExecution 状态、生命周期事件和通用多轮 Agent Loop；该 Runtime 不感知智慧经营业务概念。
+- `src/domain/` 提供不依赖 Agent/Model 的 Goal、Evidence、Opportunity、Capability 请求/结果与轻量 Plan 契约。本轮未修改 Domain。
+- `src/application/goal_parser/` 已实现 Goal Parser Demo V1：每个正常请求只调用一次模型，按严格 JSON 协议提取单一完整目标；可信 actor/channel 只来自 `RuntimeContext`；指标由包内版本化词汇解析，当前仅配置 NBEV；正向金额支持阿拉伯数字及元、万/W、亿单位并统一保存为元。
+- Parser 支持量化业绩目标和探索经营机会两类入口。阻塞缺失返回结构化 `MissingInformation` 并终止本次运行；模型调用、协议、原文依据和指标配置失败返回稳定技术错误。首版不支持已有 Goal 修订、澄清续接、自动 JSON 修复、日期计算、多指标或多目标。
+- `src/application/planner/` 已实现 Planner Demo V1：输入 Goal、简单 `*_refs` Context 与当前可执行 Catalog，模型可跳过、重复和重排能力；Application 控制 Plan 身份、GoalRef、版本和 ACTIVE 状态。Planner 严格区分无法规划与技术失败，仅 JSON 语法错误允许一次格式修复。
+- BusinessAgent 只把同时存在 Catalog 描述和 callable handler 的能力发送给 Planner；空交集或有效 `unable_to_plan` 停止且不执行 handler。每次运行只创建并执行一个 Plan。
+- `src/application/capability/` 已实现本次运行独享的 ArtifactStore、CapabilityIO、初始引用规范化、直接依赖输入解析、结果关联校验和 SUCCESS 产物发布。Store 对对象读写做深复制；后继能力读取 Store 中的实际对象，不从 payload 或 summary 猜输入。
+- 只有 SUCCESS 会发布产物并释放依赖。PARTIAL_SUCCESS、NO_RESULT、BLOCKED 和 FAILED 保留真实结果后停止；NEED_INFORMATION 或执行前缺输入返回结构化澄清。缺输入、歧义、对象不存在、输出协议错误和重复执行不会调用或继续下游 handler。
+- Demo 执行入口不再包含 `Planner.replan()`、Plan V2、重规划计数或换版分支；Planner 也不再公开 Replan 方法。用户重新提交完整请求时必须创建新 Goal/Plan/ExecutionContext/ArtifactStore。
+- `scripts/smoke_demo_v1.py` 提供两个离线端到端合成冒烟：完整开门红目标走洞察、圈客、策略、确定性门禁和模拟任务；已知“王女士（虚构）”通过可信初始 customer_set 跳过前置能力，直接生成策略并形成模拟任务。脚本默认按顺序输出 UTF-8 JSONL 全流程日志，包括 Parser/Planner 模型输入输出、Goal/Plan、Capability 请求与结果、对象读写、规则裁决、发布索引和最终模拟任务；不输出密钥或隐藏推理。所有经营对象、规则和 handler 均明确为合成数据。
+- `web/` 仍保留旧 React/Vite 对话界面代码，但仓库没有对应的当前业务 HTTP API；前端不属于本轮交付。
 
 ## 核心契约与边界
 
-- 依赖方向为 Application → `src/domain` 和 Application → `src/model`；未来能力执行接入时可形成 Application → `src/agent` → `src/model`。Domain 与 Agent/Model 相互独立，底层 Runtime 不反向依赖智慧经营业务模块。
-- Tool 是可执行的技术/业务接口；Capability 属于上层业务语义，可在未来组合一个或多个 Tool，二者不可混为一谈。
-- Goal Parser 以 `src.application.goal_parser` 为统一入口，支持新 Goal 与已有 Goal 的顶层 `KEEP`、`SET`、`CLEAR` 修改。Application 分配 Goal ID/版本、保留首次 `original_request`，并以可信 Runtime Context 注入 actor/channel。阻塞缺失以 `Goal.missing_information` 返回且不会进入 Planner；模型协议失败返回明确技术失败。产品、需求、时间和客群只接受能回指用户原文或既有 Goal 的值；指标 code 只能由版本化词汇配置的唯一命中生成，当前词汇仅含 NBEV。
-- Planner 支持跳过、重复、重排及步骤依赖，并允许一次非法 JSON 格式修复；Plan ID、版本、GoalRef 和状态由 Application 构造。
-- 独立 `validate_plan()` 确定性检查 Catalog 外能力、重复 step_id、未知依赖和依赖环；Planner 在返回 Plan 前调用该函数。
-- BusinessAgent 依次调用 Goal Parser、澄清分支、Planner、Plan Validation 和最小执行循环，对外区分 `COMPLETED`、`CLARIFICATION_REQUIRED`、`STOPPED` 与应用异常 `FAILED`；执行循环直接组合已有函数，不是新的 Agent Loop、Workflow Engine 或状态机。
-- 当前已有 Capability 的最小 handler 分发、失败收敛、ExecutionContext 结果记录、PlanStep 单步执行链路、Ready Step 解析、执行后继续策略和 `NO_RESULT` 后的 Plan 版本重规划；BusinessAgent 会自动推进成功步骤，最多允许一次 Replan，保留旧步骤结果并避免已成功步骤重跑。没有 Retry、Fallback、Resume、并行调度、自动合并输出、确定性经营规则、客户数据或任务分发能力；Plan/CapabilityResult/Opportunity/Evidence 自身不执行任何业务逻辑。
-- Capability Catalog 与执行 handler 映射保持分离：Catalog 面向 Planner 描述“能做什么”，Executor 的普通映射决定“由谁执行”；缺失 handler 或 handler 异常会返回既有 M1 `FAILED` CapabilityResult。
-- ExecutionContext 仅包含 `goal`、`current_plan`、`known_context` 和 `step_results`；`record_result()` 只按 step_id 保存最新结果，不把输出自动并入已知事实。
-- `build_capability_request()` 直接使用当前 Goal/Plan 版本、Goal 中的可信 actor/channel 来源，并只把 `known_context` 中命名为 `*_refs` 的字符串引用收敛为 `input_refs`；不再透传开放式业务属性。`execute_step()` 只负责构造请求、调用 Executor 并记录结果，不判断步骤是否 Ready。
-- Goal 不重复保存可由 `metric + target` 推导的完成标准；Evidence 以 `subject_ref/field/value`、来源、观测/有效时间及可选置信度和限制表达最小判断依据；Opportunity 复用 `GoalRef`，核心只保留问题、证据链接及可选的轻量优先级；PlanStep 仅保留能力选择和依赖。候选筛选逻辑、机会有效性、下一步提示和写操作控制策略分别延后到其真实消费阶段。
-- `is_step_ready()` 只认 `step_results`：步骤未执行且所有依赖为 `SUCCESS` 或 `PARTIAL_SUCCESS` 时 Ready；`get_next_ready_step()` 按 Plan 出现顺序返回第一个 Ready Step。它不判断 Plan 已完成、卡住或需要重规划。
-- `decide_continuation()` 将 `SUCCESS/PARTIAL_SUCCESS` 映射为 `CONTINUE`、`FINISH` 或不一致状态下的 `STOP`，将 `NO_RESULT` 映射为 `REPLAN`，将 `NEED_INFORMATION` 映射为 `ASK_USER`，并对 `BLOCKED/FAILED` 返回 `STOP`；`Planner.replan()` 只处理 `NO_RESULT`，基于 Goal、当前 Plan、Context、历史结果、最近结果和 Catalog 生成完整 Plan 新版本，复用 `validate_plan()` 并通过 `validate_replan()` 防止保留的成功步骤改变 capability 身份。当前不执行 Retry、Fallback、Resume 或其他状态恢复。
-- Capability Catalog 不包含顺序、前后继或步骤编号；五类能力可由后续 Planner 按 Goal 与上下文选择、跳过、重复或重排。
-- 当前没有认证、会话历史、运行持久化、生产级并发治理或真实业务数据接入。
-- 仓库中的合成数据与业务规则已随最近提交移除，不能再以此前的 86→41→12 漏斗、机会推荐或客户结果作为当前事实。
-- 最近验证基线：2026-09-21，当前仓库的 19 项 `unittest` 通过，覆盖领域契约、Goal 创建、受治理指标、阻塞澄清门禁、`KEEP/SET/CLEAR`、首次原始请求保留、无依据字段过滤和单次 JSON 格式修复；已完成 `src`、`tests` 字节码编译，未执行真实模型在线验证。
+- 依赖方向保持 Application → Domain/Model；Domain、Agent Runtime 和 Model 不反向依赖业务 Application。
+- Goal Parser 公共入口导出 `GoalParser`、`GoalParseResult`、`GoalParseStatus`、`RuntimeContext` 和 `MetricVocabulary`。结果状态仅为 `SUCCESS`、`CLARIFICATION_REQUIRED`、`TECHNICAL_FAILURE`。
+- `existing_goal` 只保留调用兼容性：非空时不调用模型、不修订旧 Goal，提示用户重新提交完整目标。重新提交属于独立运行。
+- Planner 正常返回既有 Domain `Plan`；`PlanningUnavailableError` 表示当前能力无法形成计划，`PlannerError` 表示模型、协议、Context 或 Plan 校验失败。模型只生成 step_id、capability_id 和 depends_on。
+- Planner Context 只接受非空 `_refs` 键和 list/tuple 字符串引用；它只表示应用提供的引用，不证明对象存在、有效或有权限。执行阶段由 ArtifactStore 与门禁解析真实对象。
+- CapabilityIO 显式声明必需输入、可选输入和允许输出类型。每种输入类型首版只允许一个对象；多个客户应封装为单个 customer_set，不做框架级隐式合并。
+- 后继输入只从直接依赖步骤已发布的 SUCCESS 产物或本次运行的初始引用中选择；直接依赖产物优先，不自动搜索祖先、无关步骤或跨运行产物。
+- handler 必须先显式将 JSON 兼容业务对象放入同一个 Store，再通过 CapabilityOutput 发布引用。通用执行层不扫描或自动保存 payload。
+- SUCCESS 输出在全部校验通过后统一写入 step_results 与 published_artifacts；失败校验不会发布部分可信产物。非 SUCCESS 结果从不发布产物。
+- 当前的确定性门禁是通用执行框架能力；真实客户归属、个险可经营范围、产品知识、规则版本和任务分发仍需后续真实 Capability/Tool 提供。对象存在不等于有经营权限。
 
 ## 已知限制
 
-- `src/manage` 已不存在，因此 README 中关于 `manage.api`、`manage` 命令行入口和业务 Tool 自动发现的说明与当前代码不一致，待后续业务层重建时同步校准。
-- 前端仍保留旧的对话接入形态，缺少当前可用的后端业务入口；前端构建状态未在本轮重新验证。
-- M1 不校验 Opportunity 文本是否暗含产品推荐、Capability 是否被错误设计成固定流程、或 Runtime 是否在未来被错误接入 Domain；这些仍需架构评审与后续集成测试。
-- Goal Parser 新模型协议尚未执行真实模型在线复验，也未形成跨模型行为评测；当前受治理指标词汇只包含 NBEV，其他明确指标会进入结构化澄清，扩展时必须更新版本化业务配置而不是 Prompt 或代码分支。
-- `validate_plan()` 仅覆盖 M2-Lite 要求的四项基础合法性，不包含上下文依赖求解、Capability 版本绑定、输出类型、Side Effect 或语义修复。
+- 当前没有真实定向洞察、圈客、策略、产品知识、客户数据、客户归属/渠道规则或任务分发能力。测试和冒烟使用合成 handler，只验证协议、门禁与对象流转。
+- 当前没有 HTTP API、运行持久化、认证、会话恢复、并行调度、外部事务或跨 Goal/跨 Plan 产物复用。
+- Parser 受治理指标词汇当前仅包含 NBEV；产品名称只作为用户原文保存，不验证真实在售或适配性。金额解析不支持中文数字、区间、算式、负数、零或 at_most 等比较意图。
+- Planner 不在规划期证明全部输入可达；缺输入由执行前门禁确定性阻止。模型是否能在真实输入下稳定选择最少合理能力仍需在线评测。
+- 已检测到本地模型配置，但本轮真实模型在线冒烟在沙箱内均返回 `MODEL_CALL_FAILED`；外部网络访问因目标端点未确认可信而未获授权。因此没有完成真实模型语义验证，离线 FakeModel 结果不能替代该验证。
+- `web/` 尚未接入当前 Application 契约，本轮未验证前端构建。
+
+## 最近验证基线
+
+- 2026-09-21：`import src.application` 通过。
+- 2026-09-21：完整离线 `unittest` 共 62 项通过，覆盖 Domain、Parser、Planner、BusinessAgent 门禁、Catalog/handler 交集、单 Plan 停止语义、ArtifactStore、实际对象内容传递、运行隔离和规则阻断保留。
+- 2026-09-21：`src`、`tests`、`scripts` 字节码编译通过。
+- 2026-09-22：`scripts/smoke_demo_v1.py` 两个端到端合成样例均完成，均只生成 Plan V1，并输出可读取中文的结构化全流程日志及 `execution_mode=simulated` 的个险模拟任务。
+- 2026-09-21：真实模型在线验证未完成，原因见已知限制。
 
 ## 任务入口
 
-- 阅读路线：`doc/roadmap/roadmap.md`
-- 阅读 M1 整体设计：`doc/roadmap/M1/M1.md`
-- 运行完整 Python 测试：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v`
-- 运行 Agent Runtime 离线冒烟：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe scripts/smoke_agent_loop.py`
-- 运行模型冒烟：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe scripts/smoke_model.py`
-- 前端开发/构建：进入 `web/` 后执行 `npm run dev` 或 `npm run build`；当前不应假设存在可连接的业务 API。
+- 运行完整离线测试：`.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v`
+- 运行 Demo V1 合成端到端冒烟：`.\.venv\Scripts\python.exe scripts\smoke_demo_v1.py`
+- 编译检查：`.\.venv\Scripts\python.exe -m compileall -q src tests scripts`
+- Agent Runtime 离线冒烟仍为：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe scripts\smoke_agent_loop.py`

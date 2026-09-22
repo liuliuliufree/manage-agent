@@ -1,12 +1,16 @@
 # Capability 产物引用流转收敛设计
 
-状态：已确认
+状态：原收敛方向已确认；首版实施范围已由 Demo V1 文档收缩
+
+> 最新范围：当前 Demo 不构建或接入 Replan，产物只服务本次唯一 Plan。本文跨计划产物复用、换版及 Goal 修订重验均为后续参考，不作为首版开发或验收要求。见 AGENTS.md 与产物流转 Demo V1。
+
+> 首版开发请以 [Capability 产物流转 Demo V1 范围与开发说明](2026-09-21-capability-artifact-flow-demo-v1.md) 为准。本文保留为后续设计参考；完整产物治理、Planner 双层门禁、PARTIAL_SUCCESS 自动传播、祖先依赖自动解析及跨版本独立复用不再是首版要求。原文中的“首版”“候选”“已确认事项”和验收清单不能绕过新文档扩大实施范围。该调整不代表代码已实现。
 
 ## 1. 文档定位
 
 本文用于收敛 `CapabilityResult → ExecutionContext → 后继 CapabilityRequest` 的产物引用流转，明确执行结果、可复用产物、输入解析和运行血缘之间的边界，为 Planner 可执行性校验和后续 Replan 设计提供共同基础。
 
-本文是候选设计，不覆盖当前代码、`doc/current-state.md`、`doc/architecture.md` 或 M1 Domain Contract。未确认的方案不得直接视为实现要求，也不得据此宣称当前系统已经具备真实 Capability 数据闭环。
+本文保留原收敛设计内容，其中“候选”措辞属于当时讨论记录；当前首版实施以开头链接的 Demo V1 文档为准。本文不覆盖当前代码、`doc/current-state.md`、`doc/architecture.md` 或 M1 Domain Contract，也不得据此宣称当前系统已经具备真实 Capability 数据闭环。
 
 ## 2. 当前事实
 

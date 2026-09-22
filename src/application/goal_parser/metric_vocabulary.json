@@ -1,11 +1,12 @@
 {
-  "source_id": "goal-parser-metric-vocabulary",
-  "version": "2026.09.21",
+  "source_id": "demo_metric_vocabulary",
+  "version": "1",
   "metrics": [
     {
       "code": "nbev",
       "display_name": "NBEV",
-      "aliases": ["NBEV", "新业务价值"]
+      "aliases": ["NBEV"],
+      "unit": "元"
     }
   ]
 }
