@@ -1,6 +1,6 @@
 {
-  "dataset_id": "insight_demo_v1",
-  "version": "1.0",
+  "dataset_id": "insight_demo_v2",
+  "version": "2.0",
   "products": [
     {
       "product_id": "PRODUCT_YXFB26",
@@ -9,7 +9,7 @@
         "御享分红26"
       ],
       "document_path": "data/product/御享分红26.md",
-      "document_sha256": "6D651A9B27686A1D7F6778DC74C2E1064DD1244EF381589367567FAA2C55D5CB",
+      "document_sha256": "6A5B6979F9C706E2EB9F06E6C3420D56381AD996263BEC3113B1DC7D87D184A9",
       "document_version": null,
       "source_kind": "user_provided_markdown"
     },
@@ -20,10 +20,9 @@
         "御享金越年金"
       ],
       "document_path": "data/product/御享金越年金.md",
-      "document_sha256": "B2C19C8128C50B20C43EA5BFDA25480ADE46C9D2F22A06DA8E165C2BAEE53055",
+      "document_sha256": "ABE7D586668380A9B246ECD83E012BE2931EC71937FEAB621F4468FAA390A123",
       "document_version": null,
       "source_kind": "user_provided_markdown"
     }
   ]
 }
-

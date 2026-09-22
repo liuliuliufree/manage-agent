@@ -1,6 +1,14 @@
 # 开发日志
 
 ## [Unreleased]
+- 2026-09-22 重构 `scripts/smoke_real_insight_agent.py` 为一次真实发送的两幕场景：自然语言 Goal 经 GoalParser 和唯一 Planner Plan，第一幕程序保证知识检索、指纹原文读取与快照聚合，再由模型形成并校验正式 Opportunity；第二幕经直接依赖读取 Opportunity、完整查询 50 人证据、模型评估、程序校验并发布三层名单和仅含优先客户的 `customer_set`。JSONL 逐动作记录公开业务理由、可信输入、事实/模型推断/规则结果及输出，不向模型声明评测或测试，也不输出隐藏推理。真实模型 `deepseek-v4-flash` 实际完成一次：优先 2、进一步了解 4、持续关注 4、排除 40，单 Plan、无 Replan、两幕同为 `insight_demo_v2/2.0`；该结果仍是合成数据场景，第一幕 handler 尚未下沉为可复用 Application 模块。全量离线测试 74 项及数据校验通过。
+
+
+- 2026-09-22 发布共享合成快照 `insight_demo_v2/2.0`：保留 50 位客户并将行为补充至 117 条（主窗口/历史 107/10），覆盖明确自身需求、一般咨询、替他人询问、同主题撤回和无关主题否定；主题、素材、产品目录与 manifest 统一版本并重算实际指纹，v1 身份与旧指纹保存在 `data/client/versions/1.0-manifest.json`。独立人工标注保存在运行时不可读的 `data/evaluation/`。
+
+- 2026-09-22 新增 `query_customer_evidence`、`assess_customer_opportunity` 与可装配的 `customer_targeting` handler/IO。查询 Tool 绑定可信 actor/channel/快照并保留完整近期、稀疏历史、负向及跨主题上下文；模型 Tool 只解析受信引用，复用现有 ChatModel，输出显式模型推断与审计元数据。Capability 校验引用、逐字片段、客户归属、版本、时间、受控主题和层级一致性，发布三层展示结果，但下游 `customer_set` 只含优先沟通客户；不实现产品匹配、策略、任务、预测、Replan、API 或前端。
+
+- 2026-09-22 数据校验通过：50 位客户、117 条行为、107/10 主窗口/历史事件、40 位近期活跃客户及 7 项数据变体。完整离线测试 74 项通过并完成 `src`、`tests`、`scripts` 编译与 `import src.application`；新增圈客测试覆盖模型错误/非法输出、伪造和跨客户引用、一般咨询强塞优先、同主题撤回、无关主题否定和优先集合交接。独立真实模型 `deepseek-v4-flash` 语义评测 7/7 标注通过；该小样本结果不代表生产泛化、产品适配或完整链路验证。
 
 - 2026-09-22 实现 `src/application/insight_tools.py` 的三个通用只读 Tool：`search_knowledge` 按产品目录正式名/已登记别名检索 Markdown 章节，`read_knowledge` 按文档指纹读取精确原文行区间，`aggregate_records` 在 `customer_profiles`/`customer_behaviors` 上执行白名单字段、时间窗、同事件筛选、分组和独立客户统计。复用 `src/agent/tool.py` 的 `Tool`/JSON Schema 校验，来源保留 dataset/version/manifest 或文档指纹；拒绝路径、SQL、代码和任意字段，不生成机会、推荐、名单或预测。新增 5 项离线测试覆盖别名、原文版本、非法参数、分母/去重/同事件语义及源数据变体；本轮未接入洞察 Capability、Planner、Replan、API 或前端，也未声称完整 M4 完成。
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the M4 insight-v1 synthetic snapshot using only the Python standard library."""
+"""Validate the shared insight/customer-selection v2 synthetic snapshot."""
 
 from __future__ import annotations
 
@@ -41,29 +41,29 @@ EXPECTED_AGES = [25, 27, 28, 29, 30, 31, 33, 34, 35, 36, 37, 38, 39, 40, 40, 41,
                  61, 62, 63, 64, 65, 66, 68, 70, 72, 74]
 EXPECTED = {
     "customers": 50,
-    "events": 115,
-    "recent_events": 105,
+    "events": 117,
+    "recent_events": 107,
     "historical_events": 10,
     "recent_active_customers": 40,
     "historical_only_customers": 5,
     "no_event_customers": 5,
     "recent_consultation_customers": 20,
-    "recent_explicit_interest_customers": 15,
-    "recent_not_now_customers": 3,
+    "recent_explicit_interest_customers": 13,
+    "recent_not_now_customers": 6,
     "recent_already_arranged_customers": 2,
-    "recent_cross_topic_customers": 4,
-    "event_type_counts": {"content_view": 65, "event_attendance": 10, "consultation": 25, "followup_note": 15},
-    "recent_event_type_counts": {"content_view": 60, "event_attendance": 10, "consultation": 20, "followup_note": 15},
+    "recent_cross_topic_customers": 5,
+    "event_type_counts": {"content_view": 65, "event_attendance": 10, "consultation": 25, "followup_note": 17},
+    "recent_event_type_counts": {"content_view": 60, "event_attendance": 10, "consultation": 20, "followup_note": 17},
     "recent_topic_customers": {
         "retirement_income": 13, "family_protection": 10, "liquidity_planning": 8,
-        "dividend_understanding": 7, "health_protection": 6,
+        "dividend_understanding": 7, "health_protection": 7,
     },
     "recent_topic_consultation_customers": {
         "retirement_income": 9, "family_protection": 5, "liquidity_planning": 3,
         "dividend_understanding": 2, "health_protection": 1,
     },
     "recent_topic_explicit_interest_customers": {
-        "retirement_income": 8, "family_protection": 4, "liquidity_planning": 2,
+        "retirement_income": 6, "family_protection": 4, "liquidity_planning": 2,
         "dividend_understanding": 1, "health_protection": 0,
     },
 }
@@ -122,7 +122,7 @@ def validate_files() -> dict[str, Any]:
     if manifest is None:
         raise AssertionError("manifest.json is required")
     for key, expected in {
-        "dataset_id": "insight_demo_v1", "version": "1.0", "synthetic": True,
+        "dataset_id": "insight_demo_v2", "version": "2.0", "synthetic": True,
         "analysis_as_of": "2026-09-22T00:00:00+08:00", "timezone": "Asia/Shanghai",
         "window_start": "2026-06-24T00:00:00+08:00", "window_end": "2026-09-22T00:00:00+08:00",
         "channel_id": CHANNEL, "owner_actor_id": ACTOR,
@@ -187,6 +187,10 @@ def validate_files() -> dict[str, Any]:
         raise AssertionError(f"manifest file fingerprints mismatch: {manifest_files!r} != {expected_manifest_files!r}")
     if "manifest.json" in manifest_files:
         raise AssertionError("manifest must not contain its own fingerprint")
+    archive_path = CLIENT_DATA / "versions" / "1.0-manifest.json"
+    archive = json.loads(archive_path.read_text(encoding="utf-8"))
+    if archive.get("dataset_id") != "insight_demo_v1" or archive.get("version") != "1.0":
+        raise AssertionError("v1 traceability manifest is missing or invalid")
 
     for event in events:
         event_id = event["event_id"]
@@ -214,21 +218,33 @@ def validate_files() -> dict[str, Any]:
                 raise AssertionError(f"{event_id}: statement is required")
             if event["statement_kind"] == "question" and "？" not in statement:
                 raise AssertionError(f"{event_id}: question statement must be phrased as a question")
-            if event["statement_kind"] == "explicit_interest" and "希望" not in statement:
-                raise AssertionError(f"{event_id}: explicit_interest statement must express interest")
+            if event["statement_kind"] == "explicit_interest" and not any(term in statement for term in ("希望", "我想")):
+                raise AssertionError(f"{event_id}: explicit_interest statement must express first-person interest")
             if event["statement_kind"] == "not_now" and "暂不考虑" not in statement:
                 raise AssertionError(f"{event_id}: not_now statement mismatch")
             if event["statement_kind"] == "already_arranged" and "已经" not in statement:
                 raise AssertionError(f"{event_id}: already_arranged statement mismatch")
             age = next(row["age_years"] for row in customers if row["customer_id"] == event["customer_id"])
             if event["topic_code"] == "retirement_income":
-                if age < 60 and "退休后" in statement:
+                if age < 60 and "退休后" in statement and "未来退休" not in statement:
                     raise AssertionError(f"{event_id}: younger customer has incompatible retired wording")
                 if age >= 60 and "未来退休" in statement:
                     raise AssertionError(f"{event_id}: older customer has incompatible future-retirement wording")
         forbidden = ("Opportunity", "推荐名单", "评分", "NBEV预测", "成交概率")
         if any(term in json.dumps(event, ensure_ascii=False) for term in forbidden):
             raise AssertionError(f"{event_id}: prohibited precomputed business output")
+
+    by_event = {event["event_id"]: event for event in events}
+    semantic_samples = {
+        "EVT_C021_03": "给自己安排",
+        "EVT_C023_03": "只是想弄清楚",
+        "EVT_C024_03": "替朋友",
+        "EVT_C025_04": "暂不考虑",
+        "EVT_C022_04": "医疗保障",
+    }
+    for event_id, phrase in semantic_samples.items():
+        if phrase not in by_event[event_id]["customer_statement"]:
+            raise AssertionError(f"{event_id}: required semantic sample is missing")
 
     recent_events = [event for event in events if recent(event)]
     historical_events = [event for event in events if not recent(event)]

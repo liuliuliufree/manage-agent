@@ -45,8 +45,8 @@ class InsightToolsTests(unittest.TestCase):
             "group_by": ["topic_code"], "metrics": ["event_count", "distinct_customers"],
         })
         self.assertEqual(result["status"], "ok")
-        self.assertEqual(result["data"]["totals"], {"event_count": 105, "distinct_customers": 40})
-        self.assertEqual(sum(row["distinct_customers"] for row in result["data"]["rows"]), 44)
+        self.assertEqual(result["data"]["totals"], {"event_count": 107, "distinct_customers": 40})
+        self.assertEqual(sum(row["distinct_customers"] for row in result["data"]["rows"]), 45)
 
         explicit = self.aggregate.handler({
             "source_id": "customer_behaviors",
@@ -54,9 +54,9 @@ class InsightToolsTests(unittest.TestCase):
             "filters": [{"field": "statement_kind", "op": "eq", "value": "explicit_interest"}],
             "group_by": ["topic_code"], "metrics": ["distinct_customers"],
         })
-        self.assertEqual(explicit["data"]["totals"], {"distinct_customers": 15})
+        self.assertEqual(explicit["data"]["totals"], {"distinct_customers": 13})
         self.assertEqual({row["topic_code"]: row["distinct_customers"] for row in explicit["data"]["rows"]}, {
-            "retirement_income": 8, "family_protection": 4, "liquidity_planning": 2, "dividend_understanding": 1,
+            "retirement_income": 6, "family_protection": 4, "liquidity_planning": 2, "dividend_understanding": 1,
         })
 
         same_event = self.aggregate.handler({
@@ -92,7 +92,7 @@ class InsightToolsTests(unittest.TestCase):
                 "time_range": {"start": "2026-06-24T00:00:00+08:00", "end": "2026-09-22T00:00:00+08:00"},
                 "metrics": ["event_count", "distinct_customers"],
             })
-            self.assertEqual(result["data"]["totals"], {"event_count": 106, "distinct_customers": 40})
+            self.assertEqual(result["data"]["totals"], {"event_count": 108, "distinct_customers": 40})
         finally:
             if directory.exists():
                 shutil.rmtree(directory)

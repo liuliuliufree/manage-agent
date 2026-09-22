@@ -42,11 +42,12 @@ src/application/
 │  ├─ step_resolution.py        仅 SUCCESS 释放依赖
 │  └─ continuation.py           完成、澄清或停止决策
 ├─ insight_tools.py             受控知识检索、原文读取和客户/行为统计 Tool
+├─ customer_selection.py        客户证据查询、模型评估及 customer_targeting handler/IO
 └─ business_agent.py            Parser → Planner → 单 Plan 执行入口
 
 scripts/
 ├─ smoke_demo_v1.py             两个合成端到端 Demo V1 冒烟
-└─ smoke_real_insight_agent.py  真实模型调用三个洞察 Tool 的评测冒烟
+└─ smoke_real_insight_agent.py  真实 Goal→单 Plan→Opportunity→圈客两幕场景
 ```
 
 M4 数据快照：
@@ -57,7 +58,8 @@ data/client/
 ├─ behaviors.jsonl              行为事件
 ├─ topics.json / materials.json 主题与素材元数据
 ├─ manifest.json / README.md    快照元数据、指纹与口径说明
-└─ （仅由脚本读取，不是当前业务运行时数据源）
+├─ versions/1.0-manifest.json   原版身份与指纹追溯
+└─ （由洞察 Tool 与圈客 Tool 共同绑定读取）
 
 data/product/
 ├─ product_catalog.json          用户提供 Markdown 产品原文索引
@@ -83,6 +85,8 @@ Agent Runtime ──→ Model
 Domain 不导入 Application、Agent 或 Model。通用 Agent Runtime 不感知 Goal、Plan、客户、产品或 NBEV。当前 BusinessAgent 直接组合 Goal Parser、Planner 和 Application Capability 执行组件，不引入第二个 Agent Loop、Workflow Engine、Registry 或新框架。
 
 `application.insight_tools` 通过 `InsightToolConfig` 绑定应用拥有的数据根目录，再用既有 `agent.tool.Tool` 暴露三个同步 handler。handler 在直接调用时也复用 `Tool.validate_arguments`；模型输入不能提供路径、SQL、代码、actor 或 channel。知识工具只允许 product catalog 登记的 Markdown，并核对目录指纹；统计工具只允许 `customer_profiles`/`customer_behaviors` 及固定字段、度量和年龄分组。工具返回普通结果 envelope 与来源，不创建 Domain Evidence/Opportunity，也不把结果注册为 Capability 产物。
+
+`application.customer_selection` 复用同一快照校验与既有 Tool、ChatModel、ArtifactStore 边界。查询 Tool 只读取事实；评估 Tool 只接受 Store 中的 Opportunity 和 customer_evidence 引用，以一次批量模型调用产生模型推断；Capability handler 再做引用、逐字片段、客户归属、版本、受控主题、时间顺序与层级不变量校验。成功时发布三层 `selection_result` 和优先集合 `customer_set`，后继策略能力只需声明直接依赖的 `customer_set`，不会自动回溯 Opportunity。
 
 Capability Catalog 与 Executor handler 映射保持分离：Catalog 描述 Planner 能看见的能力，Executor 表示本次装配中可调用的实现。BusinessAgent 取二者交集并保持 Catalog 原顺序；IO 元数据通过独立普通 Mapping 注入。
 
@@ -141,8 +145,8 @@ PARTIAL_SUCCESS、NO_RESULT、BLOCKED、FAILED 和 NEED_INFORMATION 均不发布
 
 ## 当前业务与交互边界
 
-当前生产代码只提供通用编排、对象传递和门禁机制，没有真实经营 handler。`scripts/smoke_demo_v1.py` 的机会、客户、策略、规则和任务均为虚构测试数据；模拟任务明确保存 `execution_mode=simulated`。它证明对象内容贯穿下游以及个险/当前代理人门禁可被执行框架尊重，不证明真实业务规则正确。
+当前 Application 已提供可装配的 `customer_targeting` handler，但其数据是合成快照、判断来自模型推断；它不是生产客户数据或权限服务。两幕场景脚本装配受控 `directional_insight` handler，依次调用知识检索、指纹原文读取和聚合统计，以模型形成受协议约束的 Opportunity，再经 ArtifactStore 发布给直接依赖的圈客步骤；该 handler 尚未下沉为可复用 Application 模块。`scripts/smoke_demo_v1.py` 的机会、客户、策略、规则和任务均为虚构测试数据；模拟任务明确保存 `execution_mode=simulated`。它证明对象内容贯穿下游以及个险/当前代理人门禁可被执行框架尊重，不证明真实业务规则正确。
 
-`data/client/` 与 `data/product/` 是独立的数据快照，校验脚本直接读取文件计算结果；三个 M4 只读 Tool 已消费它，但仍未接入 Capability、Planner、API 或前端，也没有预制 Opportunity、推荐名单、评分或 NBEV 预测。统计结果从实际文件计算，返回 dataset/version/manifest 指纹和查询口径；变更中的数据文件必须同步更新 manifest 指纹，否则返回来源错误，产品原文指纹变化返回 `SOURCE_CHANGED`。
+`data/client/` 与 `data/product/` 共同组成活跃 `insight_demo_v2/2.0` 快照；manifest、主题、素材和产品目录的身份必须一致，任一文件变化都需重算指纹。洞察 Tool 返回统计或原文，圈客 Tool 返回事实证据或模型推断；数据中没有预制 Opportunity、名单、评分或 NBEV 预测，独立人工标注位于 `data/evaluation/` 且仅评测脚本读取。
 
 仓库当前没有与该 Application 链路匹配的 HTTP API。`web/` 是保留的旧前端代码，不在本轮架构数据流中。

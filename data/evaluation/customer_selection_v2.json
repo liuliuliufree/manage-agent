@@ -1,0 +1,19 @@
+{
+  "evaluation_id": "customer_selection_semantics_v2",
+  "dataset_id": "insight_demo_v2",
+  "dataset_version": "2.0",
+  "runtime_access": "forbidden",
+  "opportunity_fixture": {
+    "opportunity_type": "retirement_income_planning",
+    "problem_statement": "识别已表达退休后补充收入安排需求或关注的客户"
+  },
+  "labels": [
+    {"customer_id":"C021","expected_need_state":"explicit_self_need","expected_tier":"priority","evidence_event_ids":["EVT_C021_03"]},
+    {"customer_id":"C022","expected_need_state":"explicit_self_need","expected_tier":"priority","evidence_event_ids":["EVT_C022_03","EVT_C022_04"],"note":"后续否定属于医疗保障，不覆盖退休收入需求"},
+    {"customer_id":"C023","expected_need_state":"active_inquiry","expected_tier":"further","evidence_event_ids":["EVT_C023_03"]},
+    {"customer_id":"C024","expected_need_state":"other_person","expected_tier":null,"evidence_event_ids":["EVT_C024_03"]},
+    {"customer_id":"C025","expected_need_state":"current_negative","expected_tier":null,"evidence_event_ids":["EVT_C025_03","EVT_C025_04"]},
+    {"customer_id":"C001","expected_need_state":"attention_only","expected_tier":"continued","evidence_event_ids":["EVT_C001_01","EVT_C001_02"]},
+    {"customer_id":"C046","expected_need_state":"insufficient","expected_tier":null,"evidence_event_ids":[]}
+  ]
+}

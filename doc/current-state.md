@@ -13,9 +13,11 @@
 - 只有 SUCCESS 会发布产物并释放依赖。PARTIAL_SUCCESS、NO_RESULT、BLOCKED 和 FAILED 保留真实结果后停止；NEED_INFORMATION 或执行前缺输入返回结构化澄清。缺输入、歧义、对象不存在、输出协议错误和重复执行不会调用或继续下游 handler。
 - Demo 执行入口不再包含 `Planner.replan()`、Plan V2、重规划计数或换版分支；Planner 也不再公开 Replan 方法。用户重新提交完整请求时必须创建新 Goal/Plan/ExecutionContext/ArtifactStore。
 - `scripts/smoke_demo_v1.py` 提供两个离线端到端合成冒烟：完整开门红目标走洞察、圈客、策略、确定性门禁和模拟任务；已知“王女士（虚构）”通过可信初始 customer_set 跳过前置能力，直接生成策略并形成模拟任务。脚本默认按顺序输出 UTF-8 JSONL 全流程日志，包括 Parser/Planner 模型输入输出、Goal/Plan、Capability 请求与结果、对象读写、规则裁决、发布索引和最终模拟任务；不输出密钥或隐藏推理。所有经营对象、规则和 handler 均明确为合成数据。
-- `data/client/` 与 `data/product/` 已保存按 M4 设计生成的 50 位客户、115 条行为、主题/素材字典、产品原文索引、manifest 和 README；`scripts/validate_insight_mock_data.py` 可用标准库从实际文件计算统计和 SHA-256，并校验引用、配额、时间、去重口径及独立反例。
-- `src/application/insight_tools.py` 提供三个可独立装配的只读 `Tool`：`search_knowledge`、`read_knowledge`、`aggregate_records`。它们从受信配置绑定的本地 Markdown/Mock 快照读取或计算，使用白名单字段、别名精确解析、文件/manifest 指纹、左闭右开时间窗、同事件筛选、分组独立客户去重和显式分母；不接入 Capability、Planner、API 或前端，不生成 Opportunity、推荐、预测 NBEV 或客户名单。
-- `scripts/smoke_real_insight_agent.py` 提供真实 OpenAI-compatible 模型的洞察 Tool-Call 冒烟：要求模型完成知识检索、原文读取和实际快照统计，并对工具调用、105/40/15 统计、限制说明及禁止业务结论做确定性验收。该脚本仍是评测入口，不是生产 Agent 或 M4 Capability。
+- `data/client/` 与 `data/product/` 的活跃共享快照为 `insight_demo_v2/2.0`：保留 50 位客户，包含 117 条行为、主题/素材字典和产品原文索引；v1 身份与旧指纹归档在 `data/client/versions/1.0-manifest.json`。校验脚本从实际文件核对跨文件版本、指纹、引用、时间窗、统计与关键语义样本。
+- `src/application/insight_tools.py` 提供三个洞察只读 Tool，并强制 manifest、主题、素材与产品目录绑定同一快照身份；仍不生成 Opportunity、推荐、预测 NBEV 或客户名单。
+- `src/application/customer_selection.py` 提供 `query_customer_evidence` 与 `assess_customer_opportunity`：前者按可信 actor/channel/数据版本读取完整授权客户证据并区分近期与稀疏历史，后者解析受信 Opportunity/客户证据引用后调用现有 `ChatModel`，返回标记为模型推断的关联、需求状态、证据、三层建议、理由和待核实项；模型输入移除 `statement_kind`。
+- 同模块导出 `make_customer_targeting_handler` 与 `CUSTOMER_TARGETING_IO`，可装配到现有 Catalog/CapabilityExecutor。handler 校验结构、引用归属、逐字片段、快照/Goal/actor/channel、受控主题和同主题后续否定，成功发布 `selection_result` 与只含优先沟通客户的 `customer_set`；确定性检查不声明证明语义正确。
+- `scripts/smoke_real_insight_agent.py` 以真实自然语言 Goal 运行 GoalParser、唯一 Planner Plan、第一幕受控洞察 handler、正式 Opportunity、第二幕圈客 Capability 与 ArtifactStore 发布；JSONL 按动作记录公开业务理由、可信输入、事实/推断/规则属性和结果，不记录隐藏推理。该第一幕 handler 仍只位于场景入口，尚未成为可复用 Application 模块。`scripts/evaluate_customer_selection_model.py` 是隔离人工标注的圈客语义评测入口。
 - `web/` 仍保留旧 React/Vite 对话界面代码，但仓库没有对应的当前业务 HTTP API；前端不属于本轮交付。
 
 ## 核心契约与边界
@@ -33,11 +35,11 @@
 
 ## 已知限制
 
-- 当前没有真实定向洞察、圈客、策略、产品知识接入、客户数据接入、客户归属/渠道规则或任务分发能力。三个 M4 只读工具只提供原文检索/读取和受控统计，尚未形成洞察 Capability；测试使用合成快照，只验证工具协议、来源校验和统计口径。
+- 场景入口已由 `directional_insight` handler 正式发布绑定 Goal 与 v2 指纹的 Opportunity，并通过直接依赖交给圈客；但该 handler 尚未下沉为可复用 Application 能力，数据仍是合成快照，也没有策略、真实客户归属/权限服务或任务分发，因此不代表生产业务链完成。圈客模型语义评测规模仅 7 个独立标注样本。
 - 当前没有 HTTP API、运行持久化、认证、会话恢复、并行调度、外部事务或跨 Goal/跨 Plan 产物复用。
 - Parser 受治理指标词汇当前仅包含 NBEV；产品名称只作为用户原文保存，不验证真实在售或适配性。金额解析不支持中文数字、区间、算式、负数、零或 at_most 等比较意图。
 - Planner 不在规划期证明全部输入可达；缺输入由执行前门禁确定性阻止。模型是否能在真实输入下稳定选择最少合理能力仍需在线评测。
-- 已检测到本地模型配置，但本轮真实模型在线冒烟在沙箱内均返回 `MODEL_CALL_FAILED`；外部网络访问因目标端点未确认可信而未获授权。因此没有完成真实模型语义验证，离线 FakeModel 结果不能替代该验证。
+- 本轮真实模型圈客语义评测已完成 7 个独立样本；另实际运行两幕场景一次并完成，产生优先 2、进一步了解 4、持续关注 4、排除 40。两者均基于合成退休收入数据，不能替代扩大标注集、重复运行、生产模型治理或真实客户验证。
 - `web/` 尚未接入当前 Application 契约，本轮未验证前端构建。
 
 ## 最近验证基线
@@ -46,16 +48,17 @@
 - 2026-09-21：完整离线 `unittest` 共 62 项通过，覆盖 Domain、Parser、Planner、BusinessAgent 门禁、Catalog/handler 交集、单 Plan 停止语义、ArtifactStore、实际对象内容传递、运行隔离和规则阻断保留。
 - 2026-09-21：`src`、`tests`、`scripts` 字节码编译通过。
 - 2026-09-22：`scripts/smoke_demo_v1.py` 两个端到端合成样例均完成，均只生成 Plan V1，并输出可读取中文的结构化全流程日志及 `execution_mode=simulated` 的个险模拟任务。
-- 2026-09-22：M4 合成快照校验通过：50 位客户、115 条行为，主窗口/历史事件 105/10，近期活跃客户 40，独立反例夹具 7 项通过；未执行 M4 洞察能力或完整 Demo 验证。
-- 2026-09-22：三个 M4 只读工具离线测试 5 项通过，覆盖知识别名与原文指纹、非法参数/路径边界、客户年龄分母、同事件筛选、主题去重和源数据变体；未执行 M4 洞察 Capability 或完整 Demo 验证。
-- 2026-09-22：新增真实模型洞察 Tool-Call 冒烟脚本；本轮仅完成脚本编译检查，未将真实模型在线结果写入验证基线。
-- 2026-09-21：真实模型在线验证未完成，原因见已知限制。
+- 2026-09-22：共享 v2 合成快照校验通过：50 位客户、117 条行为，主窗口/历史事件 107/10，近期活跃客户 40，7 项独立数据变体及关键语义样本通过。
+- 2026-09-22：完整离线测试 74 项通过；圈客新增 6 项覆盖负向/跨主题上下文、三层结果与优先集合交接、模型错误/非法协议、伪造或跨客户引用、一般咨询强塞优先、同主题撤回忽略及可信范围绑定。单 Plan/停止语义既有回归继续通过。
+- 2026-09-22：独立真实模型圈客语义评测使用 `deepseek-v4-flash` 完成，7/7 人工标注样本的需求状态、层级和必要证据引用通过；该结果不验证产品适配、生产泛化或完整业务链。
+
 
 ## 任务入口
 
-- 运行完整离线测试：`.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v`
+- 运行完整离线测试：`.\.venv\Scripts\python.exe -m unittest discover -s tests -t . -p "test_*.py" -v`
 - 运行 Demo V1 合成端到端冒烟：`.\.venv\Scripts\python.exe scripts\smoke_demo_v1.py`
 - 编译检查：`.\.venv\Scripts\python.exe -m compileall -q src tests scripts`
 - Agent Runtime 离线冒烟仍为：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe scripts\smoke_agent_loop.py`
 - 运行真实模型洞察冒烟：`$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe scripts\smoke_real_insight_agent.py`
-- 校验 M4 合成快照：`.\.venv\Scripts\python.exe scripts\validate_insight_mock_data.py`
+- 校验共享合成快照：`.\.venv\Scripts\python.exe scripts\validate_insight_mock_data.py`
+- 真实模型圈客语义评测入口：`scripts/evaluate_customer_selection_model.py`

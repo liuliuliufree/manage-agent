@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from agent.tool import Tool
+from src.agent.tool import Tool
 
 
 _ISO = "%Y-%m-%dT%H:%M:%S%z"
@@ -141,6 +141,8 @@ class _Snapshot:
         self.manifest = json.loads((config.client_root / "manifest.json").read_text(encoding="utf-8"))
         self.customers = _jsonl(config.client_root / "customers.jsonl")
         self.events = _jsonl(config.client_root / "behaviors.jsonl")
+        self.topics = json.loads((config.client_root / "topics.json").read_text(encoding="utf-8"))
+        self.materials = json.loads((config.client_root / "materials.json").read_text(encoding="utf-8"))
         self.catalog = json.loads((config.product_root / "product_catalog.json").read_text(encoding="utf-8"))
         self._validate()
 
@@ -148,6 +150,10 @@ class _Snapshot:
         required = ("dataset_id", "version", "analysis_as_of", "window_start", "window_end", "channel_id", "owner_actor_id")
         if self.manifest.get("synthetic") is not True or any(key not in self.manifest for key in required):
             raise ValueError("manifest is incomplete")
+        identity = (self.manifest["dataset_id"], self.manifest["version"])
+        for label, document in (("topics", self.topics), ("materials", self.materials), ("product_catalog", self.catalog)):
+            if (document.get("dataset_id"), document.get("version")) != identity:
+                raise ValueError(f"{label} snapshot identity does not match manifest")
         files = {
             "client/customers.jsonl": self.config.client_root / "customers.jsonl",
             "client/behaviors.jsonl": self.config.client_root / "behaviors.jsonl",

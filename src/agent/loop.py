@@ -12,7 +12,7 @@ from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from openai.types.chat.completion_create_params import CompletionCreateParamsBase
 
-from model import ChatModel
+from src.model import ChatModel
 
 from .event import AgentEvent
 from .tool import Tool

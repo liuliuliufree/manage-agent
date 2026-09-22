@@ -1,6 +1,6 @@
 {
-  "dataset_id": "insight_demo_v1",
-  "version": "1.0",
+  "dataset_id": "insight_demo_v2",
+  "version": "2.0",
   "synthetic": true,
   "analysis_as_of": "2026-09-22T00:00:00+08:00",
   "timezone": "Asia/Shanghai",
@@ -10,21 +10,23 @@
   "owner_actor_id": "AGENT_DEMO_001",
   "expected_counts": {
     "customers": 50,
-    "events": 115,
+    "events": 117,
     "topics": 5,
     "materials": 15,
     "products": 2
   },
   "file_sha256": {
-    "client/customers.jsonl": "3750439D7EF8C306F891A862CA9722593AB1479311F9E0590A99FE354A203B2D",
-    "client/behaviors.jsonl": "93F467546AF5581E3A029B81715661EEE9550104E7C3219E25972BAD9E629728",
-    "client/topics.json": "C5A39D904D3593DDB94EA45A6B0CE1711E0D2037243A360EF4BB8D17A1F56FD5",
-    "client/materials.json": "20C4F02A79092CDCB4F537461CA3DB4D574D7B53F9391DFBB8B8AF35414FFCF3",
-    "product/product_catalog.json": "A3BD5188A6FBEAF58D6D58E569ED247961E5C7DAE534D8CB74164B30048353DB",
-    "client/README.md": "EB0ADDE7F47860EC6E2ED892CF29E1206552CF3516573311F636E29D3D0BD3B9"
+    "client/customers.jsonl": "3A335B26E95CDDEF569289C832497D2D6E622BA0C09DB1782075C15DD53ECBE9",
+    "client/behaviors.jsonl": "4A3DE499B68286605FDD0078AA70B2534ABE98B25FBAF2FDEC9DD93C83F0DB6A",
+    "client/topics.json": "2FB44C94AFA87C7F245AC68832E23C0ACAE0197A7F42713ECF09C19C0E5B28F1",
+    "client/materials.json": "0B63942ECB43F8CDC460C12399ED027165662A874B1A3A63BB7BC57123421F0E",
+    "product/product_catalog.json": "B38EF33836F4328881B60CE184BE17E155D31481FF2539F1F41A814952C9B5D6",
+    "client/README.md": "8AFB3A14906C8065E9F1DA83508671825EB6A1757755EFBE8FCD662C5172B287"
   },
   "notes": [
     "file_sha256 excludes manifest.json to avoid self-reference",
-    "all customer and behavior records are synthetic and scoped to the current simulated individual-agent actor"
-  ]
+    "all customer and behavior records are synthetic and scoped to the current simulated individual-agent actor",
+    "v2 is the shared active snapshot for insight and customer selection; v1 identity is archived separately"
+  ],
+  "previous_version_manifest": "client/versions/1.0-manifest.json"
 }
